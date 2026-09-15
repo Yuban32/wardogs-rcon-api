@@ -13,6 +13,10 @@
     "game-server"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yuban32/wardogs-rcon-api.git"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {

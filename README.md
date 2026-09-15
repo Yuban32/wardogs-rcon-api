@@ -434,7 +434,7 @@ npm test -- --watch       # the same suite, watching
 
 ## Publishing
 
-`repository`, `bugs` and `homepage` are intentionally absent — a placeholder URL resolves to a stranger's account and renders as a broken link on the package page. Add your own before publishing.
+`repository` is required and must name this repository exactly. The registry compares it against the repository recorded in the provenance attestation and rejects the publish with `E422` when they disagree — a wrong value is not a missing link on the package page, it is a failed release. `bugs` and `homepage` are optional additions to that page.
 
 Before each release, add the new version to [CHANGELOG.md](CHANGELOG.md) — `npm run check:changelog` verifies the newest entry matches `package.json` and that both language editions cover the same versions.
 
@@ -445,7 +445,9 @@ npm pack --dry-run        # confirm the tarball contents
 git tag v0.1.0 && git push --tags
 ```
 
-`.github/workflows/publish.yml` publishes on a `v*` tag, with `--provenance`, after verifying the tag matches `package.json`. It needs an `NPM_TOKEN` secret.
+`.github/workflows/publish.yml` publishes on a `v*` tag, with `--provenance`, after verifying the tag matches `package.json`. Publishing from CI needs an `NPM_TOKEN` repository secret holding a **granular access token with bypass-2FA enabled** — npm revoked classic tokens in December 2025 and no longer issues them. The workflow checks the secret exists before it builds anything.
+
+From a laptop, provenance cannot be generated at all (no supported CI provider), so a local publish has to opt out of it with `npm publish --provenance=false`.
 
 ---
 

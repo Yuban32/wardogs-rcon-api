@@ -3,12 +3,12 @@ name: Publish
 on:
   push:
     tags: ['v*']
+  # A manual run builds, tests and packs without publishing — the publish step
+  # below is gated on a tag push. There is deliberately no input to override
+  # that: a manual run checks out a branch, not a tag, so the tag/version check
+  # could not run, and an off-tag publish would be the one release this workflow
+  # exists to prevent.
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: Build and pack without publishing
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -26,6 +26,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Fail seconds in, rather than after the full suite. npm's own error for a
+      # missing credential is a bare `ENEEDAUTH` raised by the registry at the
+      # very end of the run, which reads like a bad token instead of a secret
+      # that was never created — the two need different fixes.
+      - name: Check the NPM_TOKEN secret is present
+        if: github.event_name == 'push'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN is missing or empty. Create a granular access token with bypass-2FA enabled and add it as a repository secret."
+            exit 1
+          fi
+          echo "NPM_TOKEN is present"
 
       - uses: actions/setup-node@v4
         with:
