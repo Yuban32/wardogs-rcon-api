@@ -1,0 +1,1980 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wardogs RCON API (unofficial)",
+    "version": "1.1.0",
+    "x-apiVersion": "v1",
+    "description": "Unofficial reference for the Wardogs dedicated server RCON HTTP API (the `/v1` interface the admin panel uses).\nCompiled from the official console's client code and checked against a running server. It describes the API, not any particular server — point it at your own.\n\n**The listener speaks plain HTTP.** There is no TLS on the RCON port, so the password travels in the clear: bind it to localhost and reach it over a VPN or an SSH tunnel, or put a reverse proxy in front of it. Do not open it to the internet.\n\n**Builds differ.** `GET /v1/capabilities` lists the routes a server actually serves; ask it rather than assuming. The 2026-09-14 build removed eight write endpoints and moved what they did into the config document — they are marked deprecated here because older servers still answer them.\n\nSpec version 1.1.0. Full reference: https://wardogs.tech/rcon-reference",
+    "contact": {
+      "name": "wardogs.tech",
+      "url": "https://wardogs.tech/rcon-reference"
+    },
+    "x-changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-09-14",
+        "build": "++Wardogs+Live-CL-501228",
+        "changes": [
+          "Added GET /v1/server-id and GET /v1/health.",
+          "Deprecated the eight write endpoints the 2026-09-14 build removed: PATCH /v1/settings, POST and DELETE /v1/reserved-slots, POST and DELETE /v1/rotation/entries, POST /v1/rotation/entries/{i}/move, POST /v1/rotation/save, PUT /v1/sponsor. Everything they did is now an edit to the config document.",
+          "Documented PUT /v1/config as a whole-document replace, and its 422 validation response.",
+          "Corrected the scheme: the RCON listener speaks plain HTTP. It is not a TLS endpoint.",
+          "Filled in GET /v1/capabilities: apiVersion, build, auth, limits, config."
+        ]
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-09-10",
+        "changes": [
+          "First published description, compiled from the official console's client code."
+        ]
+      }
+    ],
+    "x-siteRelease": "0.34",
+    "x-lastUpdated": "2026-09-14"
+  },
+  "servers": [
+    {
+      "url": "http://{host}:{port}",
+      "description": "An RCON listener. Plain HTTP — bind it to localhost and tunnel in rather than exposing the port.",
+      "variables": {
+        "host": {
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "default": "7776"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Match state"
+    },
+    {
+      "name": "Players"
+    },
+    {
+      "name": "Moderation"
+    },
+    {
+      "name": "Match control"
+    },
+    {
+      "name": "Rotation"
+    },
+    {
+      "name": "Catalog"
+    },
+    {
+      "name": "Config"
+    },
+    {
+      "name": "Meta"
+    },
+    {
+      "name": "Sponsor"
+    }
+  ],
+  "paths": {
+    "/v1/status": {
+      "get": {
+        "summary": "Live match state",
+        "tags": [
+          "Match state"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/players": {
+      "get": {
+        "summary": "Connected players",
+        "tags": [
+          "Players"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Players"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "summary": "What this build supports",
+        "tags": [
+          "Meta"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        },
+        "description": "The routes this server actually serves, plus its API version, engine build, auth scheme, request limits and whether its config document is writable. Read it once per server and branch on `routes` rather than assuming a build."
+      }
+    },
+    "/v1/server-id": {
+      "get": {
+        "summary": "Stable id for this server",
+        "tags": [
+          "Meta"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerId"
+                }
+              }
+            }
+          }
+        },
+        "description": "An opaque id that survives restarts and map changes. Added in build ++Wardogs+Live-CL-501228. Use it to key stored state instead of host:port, which moves."
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "summary": "Liveness and queue depth",
+        "tags": [
+          "Meta"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        },
+        "description": "Uptime, open RCON connections, and the game-thread work queue — `depth` climbing or `rejectedTotal` rising means the server is shedding admin requests. Added in build ++Wardogs+Live-CL-501228; the official console does not call it."
+      }
+    },
+    "/v1/bans": {
+      "get": {
+        "summary": "Ban list",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bans"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Ban a player",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bans/{steamId}": {
+      "delete": {
+        "summary": "Lift a ban",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ]
+      }
+    },
+    "/v1/reserved-slots": {
+      "get": {
+        "summary": "Reserved slot ids",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservedSlots"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a reserved slot",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. Reserved ids live in `[/Script/WDGame.WDGameSession]` as `DefaultReservedPlayerIds`.",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteamIdRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reserved-slots/{steamId}": {
+      "delete": {
+        "summary": "Remove a reserved slot",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. Drop the id from `DefaultReservedPlayerIds`.",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ]
+      }
+    },
+    "/v1/audit": {
+      "get": {
+        "summary": "Admin action log",
+        "tags": [
+          "Meta"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audit"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/v1/players/{steamId}/kick": {
+      "post": {
+        "summary": "Kick a player",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/players/{steamId}/kill": {
+      "post": {
+        "summary": "Kill a player in-match",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ]
+      }
+    },
+    "/v1/players/{steamId}/message": {
+      "post": {
+        "summary": "Direct message a player",
+        "tags": [
+          "Players"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/players/{steamId}": {
+      "patch": {
+        "summary": "Change a player's faction (capability-gated)",
+        "tags": [
+          "Players"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SteamID64."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/broadcast": {
+      "post": {
+        "summary": "Broadcast a message to everyone",
+        "tags": [
+          "Players"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/match/map": {
+      "post": {
+        "summary": "Change map now",
+        "tags": [
+          "Match control"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapSelection"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/match/end": {
+      "post": {
+        "summary": "End the current match",
+        "tags": [
+          "Match control"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/match/restart": {
+      "post": {
+        "summary": "Restart the current match",
+        "tags": [
+          "Match control"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world/lighting": {
+      "put": {
+        "summary": "Set lighting/weather live",
+        "tags": [
+          "Match control"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LightingRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rotation": {
+      "get": {
+        "summary": "Map rotation",
+        "tags": [
+          "Rotation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rotation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rotation/entries": {
+      "post": {
+        "summary": "Add a rotation entry",
+        "tags": [
+          "Rotation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. Entries are `RotationEntries` in `[/Script/WDGame.WDServerMapRotationSettings]`, one per line.",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapSelection"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rotation/entries/{i}": {
+      "delete": {
+        "summary": "Remove a rotation entry",
+        "tags": [
+          "Rotation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. Drop that `RotationEntries` line.",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "i",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Rotation entry index."
+          }
+        ]
+      }
+    },
+    "/v1/rotation/entries/{i}/move": {
+      "post": {
+        "summary": "Move an entry up/down",
+        "tags": [
+          "Rotation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. Reorder the `RotationEntries` lines; the file's order is the rotation's order.",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "i",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Rotation entry index."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rotation/save": {
+      "post": {
+        "summary": "Persist rotation changes",
+        "tags": [
+          "Rotation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. There is nothing left to persist: a config edit is already durable, because the document is the file.",
+        "deprecated": true
+      }
+    },
+    "/v1/settings": {
+      "patch": {
+        "summary": "Patch scoreTick / rotation settings",
+        "tags": [
+          "Config"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. `ScorePeriod` is in `[MatchState.Playing.KOTH]`; `bEnabled` and `RotationMode` are in `[/Script/WDGame.WDServerMapRotationSettings]`.",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/maps": {
+      "get": {
+        "summary": "Available maps",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/lightings": {
+      "get": {
+        "summary": "Available lighting presets",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/experiences": {
+      "get": {
+        "summary": "All experiences (modes)",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/maps/{id}/experiences": {
+      "get": {
+        "summary": "Experiences valid for a map",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Map id."
+          }
+        ]
+      }
+    },
+    "/v1/catalog/maps/{id}/alternators": {
+      "get": {
+        "summary": "Zone alternators for a map",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Map id."
+          }
+        ]
+      }
+    },
+    "/v1/sponsor": {
+      "get": {
+        "summary": "Sponsor banner URL",
+        "tags": [
+          "Sponsor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sponsor"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set sponsor banner URL",
+        "tags": [
+          "Sponsor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Removed in build ++Wardogs+Live-CL-501228 (2026-09-14).** A current server answers 404 and omits it from `GET /v1/capabilities`; older builds still serve it. Do the same thing by editing the config document: `GET /v1/config`, change the text, `PUT /v1/config`. The banner is `ServerImageURL` in `[/Script/WDGame.WDGameSession]`. Its host must be in the server's `ImageURLWhitelist`, or the value is rejected with `url_not_allowed`.",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/config": {
+      "get": {
+        "summary": "Config document",
+        "tags": [
+          "Config"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Config"
+                }
+              }
+            }
+          }
+        },
+        "description": "The server's settings as Unreal-style INI text, plus the `revision` to send back with an edit and a `sections` list describing every section and the keys it will accept.\n\nArray keys carry Unreal's config operators, and they are not decoration:\n\n```ini\n[/Script/WDGame.WDServerMapRotationSettings]\n!RotationEntries=ClearArray          ; empty the array the game already has\n.RotationEntries=(Map=\"Kavkazi\")     ; then append this entry\n```\n\n`!Key=ClearArray` is an instruction, not a member of the array — count it as one and every index shifts by one."
+      },
+      "put": {
+        "summary": "Apply a config document",
+        "tags": [
+          "Config"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "**This replaces the whole document.** Whatever you send becomes the configuration: sections you leave out are removed, not left alone. Always `GET /v1/config`, edit that exact text, and send it back — never post a fragment.\n\nEvery value is revalidated on every apply, including ones you did not touch. A key the server will no longer accept — a sponsor URL whose host has since dropped off `ImageURLWhitelist`, say — fails the write with 422 and *nothing is applied*, so one stale value blocks unrelated edits until it is corrected. `errors[]` names the section and key; show it to whoever is editing.\n\nSend the revision you read as `If-Match`, quoted, so two admins editing at once get a conflict instead of one silently overwriting the other. `POST /v1/config/validate` is the dry run and applies nothing.",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The revision from GET /v1/config, quoted. Omit at your peril."
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Apply despite warnings. It does not bypass validation errors."
+          },
+          {
+            "name": "fullApply",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Run every applier rather than only those for keys that changed."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResult"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Revision conflict — someone else edited it first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value was rejected; nothing was applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/config/validate": {
+      "post": {
+        "summary": "Validate a config document",
+        "tags": [
+          "Config"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "The dry run for `PUT /v1/config`: same body, same validation, same response shape, and nothing is written. `changed[]` shows what an apply would do — check it for sections marked `removed` before trusting a document you assembled yourself. `If-Match` is ignored here, since there is nothing to conflict with.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Would apply cleanly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value was rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The RCON password, sent as `Authorization: Bearer <password>`. One token, full access."
+      }
+    },
+    "schemas": {
+      "Ok": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "FactionScore": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "colorHex": {
+            "type": "string"
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "serverName": {
+            "type": "string"
+          },
+          "map": {
+            "type": "string"
+          },
+          "experiences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lighting": {
+            "type": "string"
+          },
+          "alternator": {
+            "type": "string"
+          },
+          "scoreTick": {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": "integer"
+              },
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "scoreCap": {
+            "type": "integer"
+          },
+          "matchSeconds": {
+            "type": "integer"
+          },
+          "players": {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "factionScores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FactionScore"
+            }
+          },
+          "rotation": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "nowIndex": {
+                "type": "integer",
+                "nullable": true
+              },
+              "nextIndex": {
+                "type": "integer",
+                "nullable": true
+              }
+            }
+          }
+        }
+      },
+      "Player": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "steamId": {
+            "type": "string"
+          },
+          "faction": {
+            "type": "string"
+          },
+          "kills": {
+            "type": "integer"
+          },
+          "deaths": {
+            "type": "integer"
+          },
+          "cash": {
+            "type": "integer"
+          },
+          "pingMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "Players": {
+        "type": "object",
+        "properties": {
+          "players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Player"
+            }
+          }
+        }
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "description": "The API generation, e.g. \"1\"."
+          },
+          "build": {
+            "type": "string",
+            "description": "Engine build string, e.g. ++Wardogs+Live-CL-501228."
+          },
+          "auth": {
+            "type": "object",
+            "properties": {
+              "scheme": {
+                "type": "string"
+              },
+              "header": {
+                "type": "string"
+              }
+            }
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "maxBodyBytes": {
+                "type": "integer"
+              },
+              "maxRequestsPerMinutePerIp": {
+                "type": "integer"
+              }
+            }
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "writable": {
+                "type": "boolean"
+              },
+              "document": {
+                "type": "string",
+                "description": "Path of the config document, normally /v1/config."
+              }
+            }
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every route this build serves, as \"METHOD /path\" with {param} placeholders. Branch on this instead of catching 404s."
+          }
+        }
+      },
+      "ServerId": {
+        "type": "object",
+        "properties": {
+          "serverId": {
+            "type": "string"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "uptimeSeconds": {
+            "type": "number"
+          },
+          "connections": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "integer"
+              }
+            }
+          },
+          "gameThreadQueue": {
+            "type": "object",
+            "description": "Admin work waiting on the game thread. Rising depth or rejectedTotal means requests are being shed.",
+            "properties": {
+              "inFlight": {
+                "type": "integer"
+              },
+              "depth": {
+                "type": "integer"
+              },
+              "rejectedTotal": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Ban": {
+        "type": "object",
+        "properties": {
+          "steamId": {
+            "type": "string"
+          },
+          "bannedAtUtc": {
+            "type": "string"
+          },
+          "bannedBy": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "Bans": {
+        "type": "object",
+        "properties": {
+          "bans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ban"
+            }
+          }
+        }
+      },
+      "ReservedSlots": {
+        "type": "object",
+        "properties": {
+          "reservedSlots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AuditEntry": {
+        "type": "object",
+        "properties": {
+          "timestampUtc": {
+            "type": "string"
+          },
+          "peer": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "Audit": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          }
+        }
+      },
+      "RotationEntry": {
+        "type": "object",
+        "properties": {
+          "map": {
+            "type": "string"
+          },
+          "experiences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lighting": {
+            "type": "string"
+          },
+          "zoneAlternator": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "denied": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Rotation": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RotationEntry"
+            }
+          }
+        }
+      },
+      "Catalog": {
+        "type": "object",
+        "description": "Catalog list; shape varies by endpoint (maps/lightings/experiences)."
+      },
+      "Sponsor": {
+        "type": "object",
+        "properties": {
+          "imageUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "Config": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string"
+          },
+          "writable": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ConfigError": {
+        "type": "object",
+        "description": "One value the server refused. Nothing is applied while this list is non-empty.",
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "e.g. url_not_allowed, out_of_range."
+          },
+          "message": {
+            "type": "string",
+            "description": "Written for a human; safe to show as-is."
+          }
+        }
+      },
+      "ConfigChange": {
+        "type": "object",
+        "description": "A section this document would change. `removed: true` means the section is absent from what you sent and would be dropped.",
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "added": {
+            "type": "boolean"
+          },
+          "removed": {
+            "type": "boolean"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ConfigResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "string",
+            "description": "The revision after the apply — send this as If-Match next time."
+          },
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigError"
+            }
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {},
+            "description": "What actually took effect, and whether it needed a map change or a restart."
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            }
+          },
+          "shadowed": {
+            "type": "array",
+            "items": {},
+            "description": "Keys overridden by a higher config layer, so the value sent is not the value in force."
+          },
+          "stripped": {
+            "type": "array",
+            "items": {},
+            "description": "Keys dropped because this build does not know them."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Applied anyway — commonly a key pinned by a command-line switch, which ignores the file."
+          },
+          "timingsMs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "MapSelection": {
+        "type": "object",
+        "required": [
+          "map"
+        ],
+        "properties": {
+          "map": {
+            "type": "string"
+          },
+          "experiences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lighting": {
+            "type": "string"
+          },
+          "zoneAlternator": {
+            "type": "string"
+          }
+        }
+      },
+      "ReasonRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "BanRequest": {
+        "type": "object",
+        "required": [
+          "steamId"
+        ],
+        "properties": {
+          "steamId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SteamIdRequest": {
+        "type": "object",
+        "required": [
+          "steamId"
+        ],
+        "properties": {
+          "steamId": {
+            "type": "string"
+          }
+        }
+      },
+      "MessageRequest": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "FactionRequest": {
+        "type": "object",
+        "required": [
+          "faction"
+        ],
+        "properties": {
+          "faction": {
+            "type": "string"
+          }
+        }
+      },
+      "LightingRequest": {
+        "type": "object",
+        "required": [
+          "lighting"
+        ],
+        "properties": {
+          "lighting": {
+            "type": "string"
+          }
+        }
+      },
+      "MoveRequest": {
+        "type": "object",
+        "required": [
+          "direction"
+        ],
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "properties": {
+          "scoreTick": {
+            "type": "integer",
+            "description": "KOTH ScorePeriod. Servers cap this; a value above the cap is rejected, with the limit in the message."
+          },
+          "rotationEnabled": {
+            "type": "boolean"
+          },
+          "rotationMode": {
+            "type": "string",
+            "enum": [
+              "ordered",
+              "random"
+            ]
+          }
+        }
+      },
+      "SponsorRequest": {
+        "type": "object",
+        "required": [
+          "imageUrl"
+        ],
+        "properties": {
+          "imageUrl": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

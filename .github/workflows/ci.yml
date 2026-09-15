@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor: `engines` requires it, and it is the oldest release
+        # with a global `fetch`. 22 is current LTS.
+        node: ['18', '20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # First, because a formatting difference is the cheapest thing to report
+      # and the most annoying to discover after a review.
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Build and packaging checks run on every version, not just one. The
+      # artifacts are format-sensitive, and the failure this catches — an ESM
+      # entry that a Node 18 resolver rejects — only appears on the older
+      # runtime.
+      - name: Check packaging
+        run: npm run lint:pkg
+
+      - name: Check changelog
+        run: npm run check:changelog
+
+      - name: Verify all four artifacts exist
+        run: |
+          set -euo pipefail
+          for file in \
+            dist/index.js \
+            dist/index.cjs \
+            dist/index.d.ts \
+            dist/wardogs-rcon-api.umd.js
+          do
+            test -s "$file" || { echo "missing or empty: $file"; exit 1; }
+            echo "ok  $file"
+          done
+
+  examples:
+    name: Examples run end to end
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # The mock exercises every read path and most writes for real. Running it
+      # in CI is what keeps the examples from rotting — they import the built
+      # artifact, so a broken build fails here too.
+      - name: Start the mock RCON server
+        run: |
+          node examples/mock-rcon-server.mjs &
+          for _ in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:7777/v1/status || { sleep 0.5; continue; }
+            break
+          done
+
+      - name: Run the Node example
+        run: node examples/node-basic.mjs
+
+      # Same mock, no library: this one talks to `/v1` with the global `fetch`
+      # alone. It is the example most likely to rot, since nothing in the build
+      # or the test suite reads it.
+      - name: Run the dependency-free example
+        run: node examples/minimal-client.mjs
+
+      - name: Start the proxy and run the proxied path
+        run: |
+          WARDOGS_ALLOWED_ORIGINS=http://127.0.0.1:7777 \
+          WARDOGS_TOKEN=mock-rcon-password \
+            node examples/browser-proxy-server.mjs &
+
+          sleep 1
+
+          node --input-type=module -e "
+            import { createClient, createProxyFetch } from './dist/index.js';
+            const client = createClient({
+              baseUrl: 'http://127.0.0.1:7777',
+              token: 'placeholder',
+              allowInsecureHttp: true,
+              fetch: createProxyFetch({ endpoint: 'http://127.0.0.1:8787/rcon-proxy' }),
+            });
+            const status = await client.status.get();
+            if (!status.serverName) throw new Error('no serverName through the proxy');
+            console.log('proxy path ok:', status.serverName);
+          "
+
+  panel:
+    name: Web panel
+    runs-on: ubuntu-latest
+
+    # Its own job, and its own install: `web/` is a separate package with its own
+    # lockfile, deliberately not an npm workspace, so the root `npm ci` and the
+    # publish path stay exactly as they were. Without this job the panel would be
+    # the one part of the repository nothing checks.
+    #
+    # pnpm here, npm at the root. The two never meet: this job touches `web/`
+    # only, and the root jobs above never enter it.
+    steps:
+      - uses: actions/checkout@v4
+
+      # Before setup-node, so its pnpm cache can find the binary.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # Test, because the route registry is compared against the library's own
+      # `ROUTE_IDS` — the panel's tripwire for the API growing underneath it.
+      - name: Test
+        working-directory: web
+        run: pnpm test
+
+      - name: Typecheck
+        working-directory: web
+        run: pnpm run typecheck
+
+      # The panel imports `../src` through a Vite alias, so this build is also
+      # the library's only bundler integration test.
+      - name: Build
+        working-directory: web
+        run: pnpm run build

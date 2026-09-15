@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+# Everything CI will run, minus the parts that need a clean checkout.
+#
+# Pushing is the last point where a broken build is cheap to catch. Once it is
+# on the remote, a tag could be pushed against it, or a release workflow could
+# pick it up — and `npm publish` cannot be undone for a given version.
+#
+# This is the same sequence as `npm run verify`, which is also what
+# `prepublishOnly` calls, so there is exactly one definition of "verified"
+# rather than three that drift.
+
+set -e
+
+npm run verify

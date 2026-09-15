@@ -1,0 +1,70 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and pack without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Required for npm provenance: the OIDC token is what proves the tarball
+      # was built from this commit by this workflow, rather than uploaded from
+      # a laptop.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # The tag and the manifest must agree. Publishing 0.2.0 from a v0.1.0 tag
+      # is unrecoverable — npm will not let the version be reused — so it is
+      # checked before anything is built.
+      - name: Verify the tag matches package.json
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag is $TAG_VERSION but package.json says $PKG_VERSION."
+            echo "Bump package.json and src/version.ts, then re-tag."
+            exit 1
+          fi
+          echo "tag and manifest agree on $PKG_VERSION"
+
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run lint:pkg
+      - run: npm run check:changelog
+
+      # Inspect what would actually ship, before shipping it. `files` mistakes
+      # are invisible until a user installs and the import fails.
+      - name: Show tarball contents
+        run: npm pack --dry-run
+
+      - name: Publish to npm
+        if: github.event_name == 'push'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

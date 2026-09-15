@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+
+# Format what is staged, then check the whole repository.
+#
+# `lint-staged` rewrites only the staged files, so a commit auto-formats what it
+# touches instead of failing and making you run `npm run format` by hand. The
+# repository-wide `format:check` that follows covers everything the commit did
+# *not* touch — without it, an unformatted file could sit in the tree
+# indefinitely as long as nobody happened to edit it.
+#
+# Then typecheck and tests.
+#
+# The full suite runs here rather than a fast subset: it is 278 tests over a
+# dependency-free library and finishes in well under a second. A hook that takes
+# seconds is a hook people start skipping, and a hook people skip protects
+# nothing. If the suite ever grows past a few seconds, split it — do not shorten
+# what runs, or the guarantee quietly disappears.
+#
+# The build is deliberately *not* here. It produces artifacts, and a hook that
+# rewrites dist/ on every commit would make `git status` noisy for no gain.
+# `pre-push` covers it.
+
+set -e
+
+npx lint-staged
+npm run format:check
+npm run typecheck
+npm test

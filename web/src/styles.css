@@ -1,0 +1,456 @@
+/*
+ * One stylesheet, no framework. The palette continues the CDN example's
+ * (examples/cdn.html): warm dark surfaces and a single amber accent, so the
+ * panel and the example page read as the same project.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #14120f;
+  --surface: #1c1a16;
+  --surface-2: #232017;
+  --border: #2b2823;
+  --border-strong: #3a362f;
+  --text: #e8e2d6;
+  --dim: #8b8377;
+  --dimmer: #746b5d;
+  --accent: #ffa028;
+  --ok: #7bc462;
+  --err: #e06b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.55 ui-monospace,
+    'SFMono-Regular',
+    Consolas,
+    monospace;
+}
+
+code {
+  font-family: inherit;
+}
+
+.app {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 3rem;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 1.25rem;
+}
+
+h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+  color: var(--accent);
+}
+
+.sub {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--dim);
+  font-size: 0.82rem;
+}
+
+.readonly {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Connection -------------------------------------------------------------- */
+
+.connect {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 5px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+label.inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+label.stack {
+  display: block;
+  margin: 0.75rem 0;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  min-width: 16rem;
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+label.inline input,
+label.inline select {
+  min-width: 0;
+  width: auto;
+  margin-top: 0;
+}
+
+textarea {
+  resize: vertical;
+}
+
+textarea.document {
+  line-height: 1.45;
+}
+
+input:disabled,
+select:disabled {
+  opacity: 0.55;
+}
+
+button {
+  padding: 0.45rem 0.9rem;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--dim);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #14120f;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+button.danger {
+  background: var(--err);
+  color: #14120f;
+  border-color: var(--err);
+  font-weight: 600;
+}
+
+/* Tabs -------------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  color: var(--dim);
+}
+
+.tab.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  background: var(--border-strong);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: var(--dim);
+}
+
+.panel {
+  min-height: 14rem;
+}
+
+/* Text -------------------------------------------------------------------- */
+
+.hint,
+.note {
+  margin: 0.5rem 0;
+  color: var(--dim);
+  font-size: 0.78rem;
+  max-width: 92ch;
+}
+
+.note {
+  color: var(--text);
+}
+
+.empty {
+  color: var(--dimmer);
+  font-size: 0.85rem;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.err {
+  color: var(--err);
+}
+
+h4 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+
+/* Data -------------------------------------------------------------------- */
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0 1rem;
+  font-size: 0.83rem;
+}
+
+table.data th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--dim);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+table.data td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+dl.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.3rem 1.25rem;
+  margin: 0.75rem 0 1rem;
+}
+
+dl.fields > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+dl.fields dt {
+  color: var(--dim);
+  font-size: 0.78rem;
+}
+
+dl.fields dd {
+  margin: 0;
+  text-align: right;
+}
+
+ul.plain {
+  margin: 0.4rem 0 1rem;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.swatch i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid rgb(255 255 255 / 20%);
+}
+
+pre.body {
+  margin: 0.5rem 0;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+}
+
+/* Route explorer ---------------------------------------------------------- */
+
+.route-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0;
+}
+
+.method {
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  font-weight: 600;
+}
+
+.method.write {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  color: var(--dim);
+}
+
+.tag.write {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tag.ok {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+/* Failures ---------------------------------------------------------------- */
+
+.failure {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.9rem;
+  background: rgb(224 107 107 / 8%);
+  border: 1px solid rgb(224 107 107 / 35%);
+  border-left-width: 3px;
+  border-radius: 4px;
+  font-size: 0.83rem;
+}
+
+.failure p {
+  margin: 0.35rem 0 0;
+}
+
+.result {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ok);
+  border-radius: 4px;
+  font-size: 0.83rem;
+}
+
+/* Log --------------------------------------------------------------------- */
+
+ul.log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.log li {
+  border-bottom: 1px solid var(--border);
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto;
+  gap: 0.6rem;
+  width: 100%;
+  align-items: baseline;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0.45rem 0.2rem;
+  font-size: 0.82rem;
+}
+
+.log-detail {
+  padding: 0 0.2rem 0.75rem 2.1rem;
+  font-size: 0.8rem;
+}
+
+.log-detail p {
+  margin: 0.25rem 0;
+}
+
+/* Footer ------------------------------------------------------------------ */
+
+.foot {
+  margin-top: 2rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--dimmer);
+  font-size: 0.75rem;
+}

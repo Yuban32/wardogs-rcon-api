@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+
+    // The same strictness the library is written under. This matters more than
+    // it looks: the panel imports `../src` directly, so the library's own source
+    // is typechecked as part of this project. A looser config here would let a
+    // panel-only error slip through while the root `npm run typecheck` — which
+    // never sees `web/` — reports success.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      // Mirrors the Vite alias below. Points at the library's *source*, so the
+      // panel needs no root `npm run build` and picking up a library edit is a
+      // page refresh rather than a rebuild.
+      "@wardogs/api": ["../src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

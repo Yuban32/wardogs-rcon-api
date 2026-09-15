@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>wardogs-rcon-api-tool — CDN example</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        padding: 2rem;
+        font:
+          15px/1.6 ui-monospace,
+          'SFMono-Regular',
+          Consolas,
+          monospace;
+        background: #14120f;
+        color: #e8e2d6;
+      }
+      h1 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 0.25rem;
+        color: #ffa028;
+      }
+      p.sub {
+        margin: 0 0 1.5rem;
+        color: #8b8377;
+        font-size: 0.85rem;
+      }
+      section {
+        margin-bottom: 1.5rem;
+      }
+      h2 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #8b8377;
+        font-weight: 600;
+        margin: 0 0 0.6rem;
+      }
+      pre {
+        margin: 0;
+        padding: 0.85rem 1rem;
+        background: #1c1a16;
+        border: 1px solid #2b2823;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .ok {
+        color: #7bc462;
+      }
+      .err {
+        color: #e06b6b;
+      }
+      .dim {
+        color: #746b5d;
+      }
+      label {
+        display: block;
+        margin-bottom: 1rem;
+      }
+      input {
+        width: 100%;
+        max-width: 34rem;
+        padding: 0.5rem 0.65rem;
+        margin-top: 0.3rem;
+        background: #1c1a16;
+        border: 1px solid #3a362f;
+        border-radius: 4px;
+        color: inherit;
+        font: inherit;
+      }
+      button {
+        padding: 0.5rem 1.1rem;
+        background: #ffa028;
+        color: #14120f;
+        border: 0;
+        border-radius: 4px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>wardogs-rcon-api-tool</h1>
+    <p class="sub">
+      Loaded from a <code>&lt;script&gt;</code> tag — no bundler, no build step. The whole library
+      is available under the <code>WardogsRCON</code> global.
+    </p>
+
+    <section>
+      <h2>Connection</h2>
+      <label>
+        RCON base URL
+        <input id="baseUrl" value="http://127.0.0.1:7777" spellcheck="false" />
+      </label>
+      <label>
+        RCON token
+        <input id="token" value="mock-rcon-password" spellcheck="false" />
+      </label>
+      <label>
+        Proxy endpoint <span class="dim">(leave blank to call the server directly)</span>
+        <input id="proxy" value="" placeholder="/rcon-proxy" spellcheck="false" />
+      </label>
+      <button id="connect">Connect</button>
+    </section>
+
+    <section>
+      <h2>Output</h2>
+      <pre id="out">Press Connect.</pre>
+    </section>
+
+    <!--
+  The UMD bundle sets a single global rather than scattering names across
+  `window`. Swap the CDN URL for a pinned version in anything you ship:
+
+    https://unpkg.com/@yuban32/wardogs-rcon-api@0.1.0/dist/wardogs-rcon-api.umd.js
+    https://cdn.jsdelivr.net/npm/@yuban32/wardogs-rcon-api@0.1.0/dist/wardogs-rcon-api.umd.js
+-->
+    <script src="../dist/wardogs-rcon-api.umd.js"></script>
+    <script>
+      const out = document.getElementById('out');
+      const lines = [];
+
+      function log(text, cls) {
+        lines.push(cls ? `<span class="${cls}">${text}</span>` : text);
+        out.innerHTML = lines.join('\n');
+      }
+
+      // Confirm what actually loaded. A cached CDN URL is the usual explanation for
+      // "the new API is not there", and `version` makes that visible immediately.
+      log(`WardogsRCON ${WardogsRCON.version}  ·  spec ${WardogsRCON.SPEC_UPDATED}`);
+      log(`${Object.keys(WardogsRCON).length} exports on the global`, 'dim');
+
+      document.getElementById('connect').addEventListener('click', async () => {
+        lines.length = 0;
+        const button = document.getElementById('connect');
+        button.disabled = true;
+
+        const baseUrl = document.getElementById('baseUrl').value.trim();
+        const token = document.getElementById('token').value;
+        const proxyEndpoint = document.getElementById('proxy').value.trim();
+
+        try {
+          const client = WardogsRCON.createClient({
+            baseUrl,
+            token,
+            // A plaintext loopback listener is the one case the library allows
+            // without TLS, because that is what it maps to.
+            allowInsecureHttp: true,
+            // A browser can only call the server directly when it sends CORS
+            // headers. With a proxy, the browser talks to its own origin instead
+            // and the token can stay on the backend.
+            ...(proxyEndpoint
+              ? { fetch: WardogsRCON.createProxyFetch({ endpoint: proxyEndpoint }) }
+              : {}),
+            retries: 0,
+          });
+
+          log(`→ ${baseUrl}`, 'dim');
+
+          const status = await client.status.get();
+          log('', null);
+          log(status.serverName);
+          log(`  ${status.map} · ${status.lighting} · ${status.matchSeconds}s in`, 'dim');
+          log(`  ${status.players.current}/${status.players.max} players`);
+          log(
+            `  rotation: ${status.rotation ? `now #${status.rotation.nowIndex}, next #${status.rotation.nextIndex}` : 'none'}`,
+            'dim',
+          );
+
+          const caps = WardogsRCON.createCapabilities(client);
+          log('', null);
+          log(`capabilities: ${(await caps.get()).routes.length} routes`, 'dim');
+          log(`  config writable: ${await caps.configWritable()}`);
+          log(`  change faction:  ${await caps.supports('PATCH /v1/players/{steamId}')}`);
+
+          const players = await client.players.list();
+          log('', null);
+          for (const player of players) {
+            const faction = status.factionScores.find(
+              (row) => row.name.toLowerCase() === player.faction.toLowerCase(),
+            );
+            log(
+              `  ${player.name.padEnd(10)} ${faction?.colorHex ?? '(unmatched)'}  ${player.kills}/${player.deaths}`,
+            );
+          }
+
+          log('', null);
+          log('✓ ok', 'ok');
+        } catch (error) {
+          log('', null);
+          if (error instanceof WardogsRCON.WardogsError) {
+            log(`✗ ${error.name}: ${error.message}`, 'err');
+            if (error instanceof WardogsRCON.WardogsHttpError) {
+              log(`  status ${error.status} · code ${error.code}`, 'dim');
+            }
+          } else {
+            // A bare TypeError here usually means the browser blocked the request —
+            // missing CORS headers, or mixed content. Set a proxy endpoint.
+            log(`✗ ${error}`, 'err');
+            log('  browser-level failure: check CORS headers, or use the proxy endpoint', 'dim');
+          }
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+NOTICE
+======
+
+Third-party content
+-------------------
+
+spec/openapi.json is a snapshot of the community-authored OpenAPI 3.0.3
+description of the Wardogs dedicated server RCON HTTP API, published at:
+
+    https://wardogs.tech/openapi.json
+    https://wardogs.tech/rcon-reference
+
+Spec version 0.27, x-lastUpdated 2026-09-10.
+
+It is redistributed here (under the MIT license that covers this repository)
+purely for interoperability and for the conformance tests in tests/ to compare
+this library's route surface against. The content is credited to its authors at
+wardogs.tech; this project claims no authorship of it.
+
+The README's description of the API, and the API's design, likewise derive from
+that community reference and the v1 interface it documents. The words, the
+comments and the implementation in src/ are this project's own.
+
+If you are a rights holder for that material and would prefer it not be
+redistributed here, open an issue and it will be removed; the library only
+needs the file at build/test time, not at runtime.
+
+Affiliation
+-----------
+
+Unofficial and unaffiliated. This project is not produced, endorsed, or
+supported by Bulkhead Interactive, Team17, or the Wardogs developers.
+
+"Wardogs" and any related marks belong to their respective owners and are used
+here only to identify the software this library interoperates with.
+
+No warranty
+-----------
+
+The API this library targets is undocumented by its developers and may change
+without notice. It is a full-access administrative interface: the bearer token
+grants kick, ban, config-write and match-control authority with no read-only
+variant. Nothing in this library restricts what that token can do. Verify
+against your own server before trusting it with anything you care about.

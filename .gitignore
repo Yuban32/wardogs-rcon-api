@@ -1,0 +1,29 @@
+# Build output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env (never commit RCON credentials)
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Husky writes this into .husky/_/ on install; it is a copy of the husky runtime,
+# not something to review.
+.husky/_
