@@ -6,7 +6,7 @@ Wardogs 专用服务器 **RCON HTTP API**(`/v1`)的类型化客户端与工具�
 
 **中文** | [English](README.md)
 
-> **非官方。** 本库面向的是社区整理的接口参考,并非游戏开发者发布或支持的 API,可能随时变更。库中固化了编写时所依据的规范版本(`SPEC_VERSION`、`SPEC_UPDATED`),并有测试将其路由表面与随包携带的规范副本逐一比对 —— 因此服务端一旦变更,是构建失败,而不是你的面板悄悄出问题。请以自己的服务器为准进行验证。
+> **非官方。** 本库基于社区发布在 [wardogs.tech](https://wardogs.tech/rcon-reference) 的 RCON API 参考([OpenAPI 规范](https://wardogs.tech/openapi.json))开发 —— 这并非游戏开发者发布或支持的 API,且可能随时变更。库中固化了编写时所依据的规范版本(`SPEC_VERSION`、`SPEC_UPDATED`),并有测试将其路由表面与随包携带的规范副本逐一比对 —— 因此服务端一旦变更,是构建失败,而不是你的面板悄悄出问题。请以自己的服务器为准进行验证。
 
 ---
 
@@ -427,25 +427,6 @@ npm run verify            # 格式化 + 类型检查 + 测试 + 构建 + 打包�
 npm run check:changelog   # 变更记录与清单一致
 npm test -- --watch       # 同一套测试,监听模式
 ```
-
----
-
-## 发布
-
-`repository` 字段是**必填**的,且必须精确指向本仓库。registry 会把它与 provenance 签名中记录的仓库地址做比对,不一致时以 `E422` 拒绝发布 —— 填错不是"包页面上少一个链接",而是发布失败。`bugs` 和 `homepage` 则是可选的补充信息。
-
-每次发版前,请把新版本写进 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md) —— `npm run check:changelog` 会校验最新条目与 `package.json` 一致,并确认中英文两版覆盖的版本相同。
-
-```bash
-npm run verify            # 类型检查 + 测试 + 构建 + 打包检查
-npm run check:changelog   # 变更记录与清单一致
-npm pack --dry-run        # 确认打包内容
-git tag v0.1.0 && git push --tags
-```
-
-`.github/workflows/publish.yml` 会在 `v*` 标签上发布,带 `--provenance`,并在发布前校验标签与 `package.json` 一致。从 CI 发布需要一个 `NPM_TOKEN` secret,里面放**启用了 bypass-2FA 的 granular access token** —— npm 已于 2025 年 12 月吊销全部 classic token,且不再签发。workflow 会在构建任何东西之前先确认该 secret 存在。
-
-在本机发布则完全无法生成 provenance(不在受支持的 CI 环境中),必须显式关闭:`npm publish --provenance=false`。
 
 ---
 
