@@ -6,7 +6,7 @@
  * meant for a `<script>` tag. `scripts/build.mjs` asserts this stays in sync
  * with `package.json`, so the two cannot silently diverge.
  */
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /**
  * The `x-lastUpdated` date of the API spec this version of the library was

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-11-10
+
+Re-release of the code npm's 0.1.0 tarball already shipped. The spec-1.1.0 work
+below landed before 0.1.0 was published, but its notes were never moved out of
+`Unreleased` — so 0.1.0 went out describing the older spec 0.27 surface while
+this section still said unreleased, and npm's package page now shows a
+source-fetch warning for the 0.1.0 commit. Version 0.2.0 republishes the same
+code under a fresh provenance trail and a tagged GitHub release. The tarball
+differs only in documentation (the wardogs.tech declaration in the READMEs) and
+the version constant; no runtime code changed.
+
 ### Added
 
 - **`GET /v1/server-id` and `GET /v1/health`.** `client.meta.serverId()` returns

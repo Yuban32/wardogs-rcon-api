@@ -1,6 +1,6 @@
 {
   "name": "@yuban32/wardogs-rcon-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed client and utilities for the Wardogs dedicated server RCON HTTP API (/v1). ESM + CJS + UMD, zero runtime dependencies, works in Node, Bun, Deno and the browser.",
   "author": "Yuban32",
   "keywords": [

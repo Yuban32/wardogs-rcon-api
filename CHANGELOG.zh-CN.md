@@ -9,6 +9,12 @@
 
 ## [未发布]
 
+暂无。
+
+## [0.2.0] — 2026-11-10
+
+重新发布 npm 的 0.1.0 tarball 里早已包含的代码。下列规范 1.1.0 的工作在 0.1.0 发布前就已合入,但其说明一直没有从「未发布」段落挪出 —— 0.1.0 就这样带着描述旧规范 0.27 的说明发了出去,而 npm 包页面对 0.1.0 的源码提交现已显示抓取警告。0.2.0 以全新的 provenance 链路和带 tag 的 GitHub Release 重新发布同一份代码;tarball 的差异只有文档(README 中的 wardogs.tech 声明)与版本常量,运行时代码没有任何变化。
+
 ### 新增
 
 - **`GET /v1/server-id` 与 `GET /v1/health`。** `client.meta.serverId()` 返回一个不随重启与换图变化的不可见 id —— 持久化状态请以它为键,而不是会变的 `host:port`。`client.meta.health()` 返回运行时长、当前连接数与游戏线程工作队列;其中 `depth` 持续攀升或 `rejectedTotal` 上涨,说明服务器正在丢弃管理请求。两者都是 build `++Wardogs+Live-CL-501228` 新增的;更旧的服务器会返回 `404`。对应类型为 `ServerId` 与 `Health`,并提供扁平别名 `getServerId()` 与 `getHealth()`。
