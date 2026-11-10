@@ -41,20 +41,23 @@ node examples/browser-proxy-server.mjs  # then open examples/cdn.html
 
 ## The web panel (`web/`)
 
-A React + Vite control panel for a running server: all 35 routes with forms, capability gating, live polling, and a config editor that respects `If-Match`. It is a **separate package** — its own `package.json`, its own lockfile, its own install — and deliberately not an npm workspace, so the root `npm ci`, `verify` and publish paths are untouched. `scripts/check-exports.mjs` asserts `web` is never published.
+A React + Vite control panel for a running server: all 35 routes with forms, capability gating, live polling, a config editor that respects `If-Match`, and a console tab over the hosting panel's own web socket. It is a **separate package** — its own `package.json`, its own lockfile, its own install — and deliberately not an npm workspace, so the root `npm ci`, `verify` and publish paths are untouched. `scripts/check-exports.mjs` asserts `web` is never published.
 
 **pnpm in `web/`, npm at the root.** The two never meet: this package is not a workspace member, and the root jobs never enter it. CI mirrors the split — `npm ci` for the library, `pnpm install --frozen-lockfile` for the panel.
 
 ```bash
 cd web && pnpm install && pnpm dev   # http://localhost:5300, /rcon-proxy → 127.0.0.1:8787
-cd web && pnpm test                  # route registry, connection layer, formatters
+cd web && pnpm proxy                 # the console relay on 127.0.0.1:8788, needs STARBASE_ALLOWED_HOSTS
+cd web && pnpm test                  # route registry, connection layer, console socket, formatters
 ```
 
-Two things to know before changing it:
+Three things to know before changing it:
 
 - **It imports the library's source**, not `dist`, through a `@wardogs/api` alias in `web/vite.config.ts` (mirrored in `web/tsconfig.json`). No root build is needed, library edits hot-reload — and the library's `src/` is typechecked under the panel's `tsconfig.json`, which is why that config copies the root's strict flags rather than relaxing them.
 - **The route registry is checked against `ROUTE_IDS`** in `web/src/lib/routes.test.ts`. Do not hand-copy the route list; extend `src/lib/routes.ts` and let the test tell you what is missing.
 - **A `createClient` always emits an `Authorization` header** — it has no "no credential" state. In proxy mode the panel passes a placeholder token purely to satisfy the constructor, and `createProxyTransport` in `web/src/lib/connection.ts` deletes that header before the request leaves, so a backend-held credential is never replaced by a bogus one. `connection.test.ts` pins both directions.
+
+**The console tab is a second connection, to a different server.** `src/lib/bisecthosting-websocket/` is a client for the hosting panel's own web console socket — not a `/v1` route, not part of the published library, and nothing it does reaches the request log. It has its own README, and `web/starbase-proxy-server.mjs` is the dependency-free relay it needs: a page cannot make either half of that connection itself (the credential request is cross-origin and the panel answers no preflight; the daemon checks the `Origin` header a browser may not set). Its allow-list is required and has no default — the target arrives from the browser — and is read from the command line (`pnpm proxy -- '*.bisecthosting.com'`) or from `STARBASE_ALLOWED_HOSTS`; the argument form exists because `VAR=value cmd` is shell syntax that `cmd` and PowerShell do not share. The socket lives in `App`, not in the tab, so switching tabs cannot disconnect it.
 
 Root `npm run format` / `format:check` do cover `web/**` (they inherit `.prettierrc.json`), but root `typecheck` and `test` do not — CI has a separate `panel` job for it.
 
