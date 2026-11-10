@@ -139,8 +139,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Before setup-node, so its pnpm cache can find the binary.
+      # Before setup-node, so its pnpm cache can find the binary. Without
+      # `package_json_file` the action reads `packageManager` from the repo
+      # root's manifest, which has no such field — only `web/package.json`
+      # does — and the step failed with "Unable to retrieve pnpm version"
+      # on every run since this job was added.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
 
       - uses: actions/setup-node@v4
         with:
