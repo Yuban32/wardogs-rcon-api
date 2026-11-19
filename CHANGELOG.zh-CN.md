@@ -11,6 +11,23 @@
 
 暂无。
 
+## [0.3.0] — 2026-11-20
+
+支持五条当前服务器确实在提供、但 vendored spec 1.1.0 完全没有声明的路由。它们是在一台运行 build `++Wardogs+Live-CL-533689`(2026-11-20)的真实服务器上实测发现的;spec 快照(2026-09-14)早于它们,因此响应类型转写自实测数据,而非镜像自 schema —— 根本不存在可镜像的 schema。钉死的清单以 `OBSERVED_ROUTES` 随库导出。早于 CL-533689 的 build 可能对它们返回 404 且不列入 `GET /v1/capabilities` —— 调用前先过 `capabilities.supports(...)`。
+
+### 新增
+
+- **`client.chat`** —— 聊天面。`get()` 返回当前地图的内存聊天缓冲,整个信封(`Chat`:`latestSeq`、`messages`、`count`)。`list(after?, limit?)` 拆出消息数组,并以 `after` 水位线做增量轮询;实测出的服务器行为值得知道:`limit` 截取的是缓冲区**最旧**的 N 条,不是最新的,且无法识别的查询参数会被静默忽略。`getTerms()` 返回查看聊天的法律同意书(`ChatTerms` —— 是法律条款,不是过滤词;接受之前外发事件流暂停),`setTerms(terms)` 记录接受动作。**`POST /v1/chat/terms` 的请求体形状未验证**:这次写操作会记录一份同意决定,因此刻意未做实测,`ChatTermsRequest` 是从 GET 推断的 —— 依赖前请先对自己的服务器验证。写操作,永不重试。扁平别名:`getChat()`、`listChatMessages()`、`getChatTerms()`、`setChatTerms()`。
+- **`client.feed.get()`** —— 外发事件流的投递状态(`FeedStatus`):每个端点的健康状况、队列深度、已发送/已丢弃计数,以及 `pausedForTerms`。`feed` 不是可读的事件流 —— 服务器把事件推送到配置的端点,这条路由报告的是外发调度的情况。扁平别名 `getFeed()`。
+- **`client.meta.version()`** —— 结构化的 build 标识(`ServerVersion`):`build`(与 `Capabilities.build` 是同一个值)外加拆开的 `engine` 版本号和 `project` 标识,调用方无需解析 build 字符串即可比较版本。扁平别名 `getVersion()`。
+- **`OBSERVED_ROUTES`** —— 五条 spec 之外路由的钉死清单,与 `ROUTE_IDS` 一同导出。
+
+### 变更
+
+- **路由一致性测试现在把「覆盖 spec」与「线上实测」分开断言。** 原先断言 `ROUTE_IDS` 与 spec 路由完全相等的测试,现在断言三件事:spec 声明的路由全部存在;spec 与 `ROUTE_IDS` 的差集恰好等于 `OBSERVED_ROUTES`;spec 尚未收编任何一条实测路由 —— 也就是说,未来一次把实测路由收进去的 spec 更新会让 CI 失败,强制重新归类,而不是被两份清单同时计数。`ROUTE_IDS` 现为 42 条:33 个路径上的 37 条 spec 路由,外加 5 条实测路由。实测得来的类型(`Chat`、`ChatMessage`、`ChatTerms`、`ChatTermsRequest`、`FeedStatus`、`ServerVersion`)与 `MapExperiences`/`MapAlternators` 一起钉在 additions map 里;注释与 `CLAUDE.md` 里过时的「35 个操作」计数一并修正为 42。
+
+`GET /v1/chat` 返回玩家的聊天内容与身份,其条款文本本身禁止超出审核需要记录、存储或传播这些数据。请把载荷当作易逝数据对待;本仓库的测试夹具与文档只使用合成值。
+
 ## [0.2.0] — 2026-11-10
 
 重新发布 npm 的 0.1.0 tarball 里早已包含的代码。下列规范 1.1.0 的工作在 0.1.0 发布前就已合入,但其说明一直没有从「未发布」段落挪出 —— 0.1.0 就这样带着描述旧规范 0.27 的说明发了出去,而 npm 包页面对 0.1.0 的源码提交现已显示抓取警告。0.2.0 以全新的 provenance 链路和带 tag 的 GitHub Release 重新发布同一份代码;tarball 的差异只有文档(README 中的 wardogs.tech 声明)与版本常量,运行时代码没有任何变化。

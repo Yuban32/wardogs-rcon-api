@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.3.0] — 2026-11-20
+
+Support for five routes that current servers serve but vendored spec 1.1.0 does not declare. They were probed on a live server running build `++Wardogs+Live-CL-533689` (2026-11-20); the spec snapshot (2026-09-14) predates them, so their response types are transcriptions of the probe rather than mirrors of a schema, because no schema exists. The pinned list ships as `OBSERVED_ROUTES`. Builds older than CL-533689 may answer 404 and omit the routes from `GET /v1/capabilities` — gate on `capabilities.supports(...)`.
+
+### Added
+
+- **`client.chat`** — the chat surface. `get()` returns the in-memory buffer for the current map as one envelope (`Chat`: `latestSeq`, `messages`, `count`). `list(after?, limit?)` unwraps the messages and polls incrementally via the `after` watermark; observed server behaviour worth knowing: `limit` truncates to the **oldest** N of the buffer, not the newest, and unrecognized query parameters are silently ignored. `getTerms()` returns the chat-viewing consent document (`ChatTerms` — legal terms, not a word filter; the outbound feed pauses until it is accepted), and `setTerms(terms)` records acceptance. **The `POST /v1/chat/terms` request shape is unverified**: the write records a consent decision and was deliberately not probed, so `ChatTermsRequest` is inferred from the GET — confirm against your own server. A write, so never retried. Flat aliases: `getChat()`, `listChatMessages()`, `getChatTerms()`, `setChatTerms()`.
+- **`client.feed.get()`** — the outbound event-feed delivery status (`FeedStatus`): per-endpoint health, queue depth, sent and dropped totals, and `pausedForTerms`. `feed` is not an event stream to read — the server pushes events out to configured endpoints, and this route reports how that dispatch is doing. Flat alias `getFeed()`.
+- **`client.meta.version()`** — structured build identity (`ServerVersion`): `build` (the same value `Capabilities.build` reports) plus split-out `engine` numbers and `project` identity, so callers can compare versions without parsing the build string. Flat alias `getVersion()`.
+- **`OBSERVED_ROUTES`** — the pinned list of the five spec-external routes, exported alongside `ROUTE_IDS`.
+
+### Changed
+
+- **Route conformance now separates spec coverage from live observation.** The test that asserted `ROUTE_IDS` equals the spec's routes exactly now asserts three things: every spec route is present, the spec-vs-`ROUTE_IDS` diff equals `OBSERVED_ROUTES` exactly, and the spec has not absorbed an observed route yet — so a re-vendor that adopts one fails CI until it is reclassified instead of being counted twice. `ROUTE_IDS` is 42: 37 spec routes across 33 paths, plus the 5 observed. The probe-derived types (`Chat`, `ChatMessage`, `ChatTerms`, `ChatTermsRequest`, `FeedStatus`, `ServerVersion`) are pinned in the additions map beside `MapExperiences`/`MapAlternators`, and stale "35 operations" counts in comments and `CLAUDE.md` are corrected to 42.
+
+`GET /v1/chat` returns players' chat and identities, and its own terms text forbids recording, storing or resharing that data beyond what moderating the server requires. Treat the payload as ephemeral; this repo's fixtures and docs use only synthetic values.
+
 ## [0.2.0] — 2026-11-10
 
 Re-release of the code npm's 0.1.0 tarball already shipped. The spec-1.1.0 work
