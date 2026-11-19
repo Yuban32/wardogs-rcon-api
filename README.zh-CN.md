@@ -91,7 +91,7 @@ if (await caps.configWritable()) {
 
 ## API
 
-以下每个方法都有两种等价写法:命名空间形式(`client.players.kick(...)`)与扁平别名(`client.kickPlayer(...)`)。实现完全相同,按上下文可读性选择即可。
+以下每个方法都有两种等价写法:命名空间形式(`client.players.kick(...)`)与扁平别名(`client.kickPlayer(...)`)。实现完全相同,按上下文可读性选择即可。标注 **†** 的路由是在 build `++Wardogs+Live-CL-533689`(2026-11-20)上实测发现的,vendored spec 1.1.0 完全没有声明 —— 库以 `OBSERVED_ROUTES` 导出这份钉死的清单;更旧的 build 可能不提供,调用前先过 `capabilities.supports(...)` 门控。
 
 ### 比赛状态
 
@@ -111,6 +111,18 @@ if (await caps.configWritable()) {
 | `client.broadcast(message)`                   | `POST /v1/broadcast`                 | `Ok`       |
 
 `setFaction` 在服务端受能力开关控制 —— 提供该功能前先确认 `capabilities.supports(...)`。
+
+### 聊天与事件流 †
+
+线上实测发现,spec 1.1.0 未记载。`chat` 是当前地图的内存缓冲:用 `list(after)` 携带信封里的 `latestSeq` 即可增量轮询。注意实测中不带参数的 GET 只返回了**最旧**的 100 条,且 `limit` 截取的也是缓冲区**最旧**的 N 条,不是最新的 —— 实测如此,违反直觉。`GET /v1/chat/terms` 是一份**法律同意书**(查看聊天以接受隐私告知为前提,未接受前外发事件流暂停),不是过滤词;对应的 `POST` 记录接受动作,其请求体形状未验证 —— 这次写操作被刻意未做实测。`feed` 不是可读的事件流:它报告的是服务器**外发**事件的投递状态。聊天载荷属于个人数据 —— 条款禁止超出审核需要存储或传播。
+
+| 方法                               | 端点                    | 返回            |
+| ---------------------------------- | ----------------------- | --------------- |
+| `client.chat.get()`                | `GET /v1/chat` †        | `Chat`          |
+| `client.chat.list(after?, limit?)` | `GET /v1/chat` †        | `ChatMessage[]` |
+| `client.chat.getTerms()`           | `GET /v1/chat/terms` †  | `ChatTerms`     |
+| `client.chat.setTerms(terms)`      | `POST /v1/chat/terms` † | `Ok`            |
+| `client.feed.get()`                | `GET /v1/feed` †        | `FeedStatus`    |
 
 ### 管理
 
@@ -194,6 +206,7 @@ try {
 | `client.meta.capabilities()`             | `GET /v1/capabilities` | `Capabilities`     |
 | `client.meta.serverId()`                 | `GET /v1/server-id`    | `ServerId`         |
 | `client.meta.health()`                   | `GET /v1/health`       | `Health`           |
+| `client.meta.version()`                  | `GET /v1/version` †    | `ServerVersion`    |
 | `client.ping()`                          | `GET /v1/status`       | `Promise<boolean>` |
 | `client.request(method, path, options?)` | 任意                   | `Promise<T>`       |
 
@@ -350,7 +363,7 @@ const client = createClient({
 
 ## 文档
 
-- [docs/api.zh-CN.md](docs/api.zh-CN.md) —— 全部 37 个操作,含参数、返回类型与 curl 对照
+- [docs/api.zh-CN.md](docs/api.zh-CN.md) —— 全部 42 个操作,含参数、返回类型与 curl 对照
 - [docs/adapters.zh-CN.md](docs/adapters.zh-CN.md) —— 直连与代理、自定义传输层、TLS、链路追踪
 - [docs/watch.zh-CN.md](docs/watch.zh-CN.md) —— 轮询节奏、事件语义、失败处理
 - [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md) —— 版本变更记录
@@ -387,7 +400,7 @@ cd web && pnpm install && pnpm dev                                      # http:/
 | ------------ | --------------------------------------------------------- |
 | Status       | 实时比赛状态,可单次拉取或轮询,含变化与名单差分            |
 | Players      | 名单,按名字解析出各阵营配色                               |
-| Routes       | 全部 37 个操作,带表单与按语义渲染的响应                   |
+| Routes       | 全部 42 个操作,带表单与按语义渲染的响应                   |
 | Capabilities | 这台服务器实际实现了哪些路由,以及它自己的拼写             |
 | Config       | 读取、编辑、校验并应用 `ServerSettings.ini`,带 `If-Match` |
 | Log          | 面板发过的每个请求,含状态码、耗时、大小与映射后的错误     |

@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  OBSERVED_ROUTES,
   ROUTE_IDS,
   isRouteId,
   normalizeRoute,
@@ -30,6 +31,10 @@ import type {
   Bans,
   Capabilities,
   Catalog,
+  Chat,
+  ChatMessage,
+  ChatTerms,
+  ChatTermsRequest,
   Config,
   ConfigChange,
   ConfigError,
@@ -37,6 +42,7 @@ import type {
   ErrorBody,
   FactionRequest,
   FactionScore,
+  FeedStatus,
   Health,
   LightingRequest,
   MapAlternators,
@@ -52,6 +58,7 @@ import type {
   Rotation,
   RotationEntry,
   ServerId,
+  ServerVersion,
   SettingsPatch,
   Sponsor,
   SponsorRequest,
@@ -83,22 +90,49 @@ function specRoutes(): string[] {
 }
 
 describe('routes match the vendored spec', () => {
-  it('declares every route the spec declares, and no others', () => {
-    const expected = specRoutes();
-    const actual = [...ROUTE_IDS].sort();
+  it('declares every route the spec declares', () => {
+    // Everything the spec knows about must be reachable through the library.
+    // The converse no longer holds: `OBSERVED_ROUTES` below are routes real
+    // servers serve that spec 1.1.0 does not declare yet.
+    const absent = specRoutes().filter(
+      (route) => !(ROUTE_IDS as readonly string[]).includes(route),
+    );
 
-    expect(actual).toEqual(expected);
+    expect(absent).toEqual([]);
+  });
+
+  it('carries exactly the pinned live-observed additions, and no others', () => {
+    // The spec-vs-ROUTE_IDS diff is exactly the knowledge that came from a
+    // live probe rather than the spec. Pinning it keeps an accidental route
+    // addition failing CI while verified live additions pass.
+    const specSet = new Set(specRoutes());
+    const extra = [...ROUTE_IDS].filter((route) => !specSet.has(route)).sort();
+
+    expect(extra).toEqual([...OBSERVED_ROUTES].sort());
+  });
+
+  it('has not yet absorbed the observed routes into the spec', () => {
+    // When a spec re-vendor declares one of these, it must be reclassified:
+    // dropped from OBSERVED_ROUTES, annotated as a spec route, counted in the
+    // spec section. This test forces that move instead of letting the route
+    // be counted by both lists at once.
+    for (const route of OBSERVED_ROUTES) {
+      expect(specRoutes(), route).not.toContain(route);
+    }
   });
 
   it('has no duplicate route ids', () => {
     expect(new Set(ROUTE_IDS).size).toBe(ROUTE_IDS.length);
   });
 
-  it('reports the spec count the reference advertises', () => {
+  it('reports the spec count plus the pinned live-observed additions', () => {
     // The reference page states "37 endpoints"; the spec has the same count
-    // across 33 paths. Asserting the number catches a partial spec fetch being
-    // vendored, which would otherwise silently shrink the library's surface.
-    expect(ROUTE_IDS).toHaveLength(37);
+    // across 33 paths. The library adds the 5 routes observed on build
+    // ++Wardogs+Live-CL-533689 (2026-11-20) and pinned in OBSERVED_ROUTES.
+    // Asserting the numbers catches a partial spec fetch being vendored,
+    // which would otherwise silently shrink the library's surface.
+    expect(ROUTE_IDS).toHaveLength(42);
+    expect(OBSERVED_ROUTES).toHaveLength(5);
     expect(Object.keys(spec.paths)).toHaveLength(33);
   });
 
@@ -203,15 +237,32 @@ describe('typed surface covers the spec schemas', () => {
 
   it('keeps the deliberate types that go beyond the spec', () => {
     // The spec types both catalog sub-endpoints as a plain `Ok`, which cannot
-    // be right — they are named for and documented as returning lists. These
-    // types are additions, not omissions, so they are excluded from the
-    // schema-name comparison above and pinned here instead.
+    // be right — they are named for and documented as returning lists. And the
+    // OBSERVED_ROUTES family has no spec schemas at all: their types are
+    // transcribed from a live probe. These are additions, not omissions, so
+    // they are excluded from the schema-name comparison above and pinned here
+    // instead.
     const additions = {
       MapExperiences: null as unknown as MapExperiences,
       MapAlternators: null as unknown as MapAlternators,
+      Chat: null as unknown as Chat,
+      ChatMessage: null as unknown as ChatMessage,
+      ChatTerms: null as unknown as ChatTerms,
+      ChatTermsRequest: null as unknown as ChatTermsRequest,
+      FeedStatus: null as unknown as FeedStatus,
+      ServerVersion: null as unknown as ServerVersion,
     } satisfies Record<string, unknown>;
 
-    expect(Object.keys(additions).sort()).toEqual(['MapAlternators', 'MapExperiences']);
+    expect(Object.keys(additions).sort()).toEqual([
+      'Chat',
+      'ChatMessage',
+      'ChatTerms',
+      'ChatTermsRequest',
+      'FeedStatus',
+      'MapAlternators',
+      'MapExperiences',
+      'ServerVersion',
+    ]);
   });
 });
 

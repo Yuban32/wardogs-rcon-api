@@ -18,6 +18,7 @@ import { ROUTE_IDS, type RouteId } from '@wardogs/api';
 export type RouteGroup =
   | 'Status'
   | 'Players'
+  | 'Chat'
   | 'Moderation'
   | 'Match'
   | 'Rotation'
@@ -30,6 +31,7 @@ export type RouteGroup =
 export const GROUP_ORDER: readonly RouteGroup[] = [
   'Status',
   'Players',
+  'Chat',
   'Moderation',
   'Match',
   'Rotation',
@@ -89,6 +91,17 @@ export interface RouteSpec {
    * says so rather than presenting a 404 as an ordinary endpoint.
    */
   deprecated?: string;
+  /**
+   * Set when the route was observed on a live server but the vendored spec
+   * does not declare it.
+   *
+   * Five routes were probed on build `++Wardogs+Live-CL-533689` (2026-11-20).
+   * They are registered like any other because current servers serve them,
+   * but the panel says where they came from rather than implying the spec
+   * backs them — and builds older than CL-533689 may answer 404, which is
+   * what the capability gating is there for.
+   */
+  observed?: string;
 }
 
 const STEAM_ID = '76561198000000002';
@@ -137,6 +150,49 @@ const ROUTES: readonly RouteSpec[] = [
     summary: 'Message everyone',
     mutating: true,
     body: { kind: 'json', template: '{\n  "message": "Server restarting in 5 minutes"\n}' },
+  },
+
+  /* Chat ------------------------------------------------------------------- */
+  // Observed live on build ++Wardogs+Live-CL-533689 (2026-11-20); the vendored
+  // spec 1.1.0 declares none of them. `feed` sits here because it is
+  // chat-delivery plumbing (it pauses until the terms are accepted) — moving
+  // it to its own group later is a one-line change.
+  {
+    id: 'GET /v1/chat',
+    group: 'Chat',
+    summary: 'Chat buffer for the current map',
+    mutating: false,
+    query: [
+      { name: 'after', label: 'After seq (incremental)', value: '' },
+      // The server returns the oldest N of the buffer, not the newest —
+      // observed, counterintuitive, and worth saying on the label.
+      { name: 'limit', label: 'Limit (oldest N)', value: '' },
+    ],
+    observed: 'Observed on build ++Wardogs+Live-CL-533689 (2026-11-20). Not in spec 1.1.0.',
+  },
+  {
+    id: 'GET /v1/chat/terms',
+    group: 'Chat',
+    summary: 'Chat-viewing consent document',
+    mutating: false,
+    observed: 'Observed on build ++Wardogs+Live-CL-533689 (2026-11-20). Not in spec 1.1.0.',
+  },
+  {
+    id: 'POST /v1/chat/terms',
+    group: 'Chat',
+    summary: 'Record acceptance of the chat terms',
+    mutating: true,
+    // The request body was not probed (it records a consent decision); the
+    // free-form JSON field is the honest default until it is verified.
+    body: { kind: 'json', template: '{\n  "acceptedVersion": 1\n}' },
+    observed: 'Observed on build ++Wardogs+Live-CL-533689 (2026-11-20). Not in spec 1.1.0.',
+  },
+  {
+    id: 'GET /v1/feed',
+    group: 'Chat',
+    summary: 'Outbound feed-delivery status',
+    mutating: false,
+    observed: 'Observed on build ++Wardogs+Live-CL-533689 (2026-11-20). Not in spec 1.1.0.',
   },
 
   /* Moderation ------------------------------------------------------------- */
@@ -339,6 +395,13 @@ const ROUTES: readonly RouteSpec[] = [
     group: 'Meta',
     summary: 'Liveness and queue depth',
     mutating: false,
+  },
+  {
+    id: 'GET /v1/version',
+    group: 'Meta',
+    summary: 'Engine and project build identity',
+    mutating: false,
+    observed: 'Observed on build ++Wardogs+Live-CL-533689 (2026-11-20). Not in spec 1.1.0.',
   },
 
   /* Config ----------------------------------------------------------------- */

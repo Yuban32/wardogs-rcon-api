@@ -1,7 +1,7 @@
 /**
  * The typed client.
  *
- * Every one of the API's 37 operations is a method here, grouped by the same
+ * Every one of the API's 42 operations is a method here, grouped by the same
  * resources the reference groups them under. The grouping is on the returned
  * object (`client.players.kick(...)`), and each namespace method also has a
  * flat alias on the client (`client.kickPlayer(...)`) for callers who prefer a
@@ -12,6 +12,13 @@
  * removed them from the server and moved what they did into the config
  * document. They are kept working because older builds still serve them, and
  * each carries an `@deprecated` note naming its replacement.
+ *
+ * Five of them are the opposite of deprecated: observed live on build
+ * `++Wardogs+Live-CL-533689` (2026-11-20) but not yet declared by the vendored
+ * spec 1.1.0 (`client.chat`, `client.feed`, `client.meta.version`). Their
+ * response types are transcriptions of a live probe rather than spec mirrors,
+ * and builds older than CL-533689 may not serve them — gate on capabilities.
+ * See `OBSERVED_ROUTES` in `routes.ts`.
  */
 
 import { createDirectFetch } from '../adapters/direct.js';
@@ -29,9 +36,14 @@ import type {
   BanRequest,
   Bans,
   Capabilities,
+  Chat,
+  ChatMessage,
+  ChatTerms,
+  ChatTermsRequest,
   Config,
   ConfigResult,
   FactionRequest,
+  FeedStatus,
   Health,
   LightingRequest,
   MapAlternators,
@@ -46,6 +58,7 @@ import type {
   ReservedSlots,
   Rotation,
   ServerId,
+  ServerVersion,
   SettingsPatch,
   Sponsor,
   SteamIdRequest,
@@ -137,6 +150,50 @@ export interface PlayersApi {
    * {@link import('../capabilities.js').createCapabilities}.
    */
   setFaction(steamId: string, faction: string, options?: CallOptions): Promise<Ok>;
+}
+
+export interface ChatApi {
+  /**
+   * `GET /v1/chat` — the in-memory chat buffer for the current map, as one
+   * envelope. Observed live on build `++Wardogs+Live-CL-533689` (2026-11-20);
+   * not in vendored spec 1.1.0. See
+   * {@link import('./routes.js').OBSERVED_ROUTES}.
+   */
+  get(options?: CallOptions): Promise<Chat>;
+  /**
+   * `GET /v1/chat` — just the messages, optionally incrementally.
+   *
+   * `after` filters to messages with `seq` strictly greater than the watermark
+   * (keep the previous `latestSeq` here to poll). `limit` truncates to the
+   * *oldest* N of the buffer, not the newest — counterintuitive, but observed.
+   * The server silently ignores query parameters it does not recognize.
+   */
+  list(after?: number, limit?: number, options?: CallOptions): Promise<ChatMessage[]>;
+  /**
+   * `GET /v1/chat/terms` — the chat-viewing consent document. Observed live;
+   * not in spec 1.1.0. These are legal terms, not a word filter; the outbound
+   * feed pauses until accepted. Show `text` verbatim to the operator.
+   */
+  getTerms(options?: CallOptions): Promise<ChatTerms>;
+  /**
+   * `POST /v1/chat/terms` — record acceptance of the chat terms. Observed
+   * live; not in spec 1.1.0.
+   *
+   * The request body shape was not probed (it records a consent decision), so
+   * {@link ChatTermsRequest} is inferred and unverified — confirm against your
+   * server before relying on it. A write: never retried.
+   */
+  setTerms(terms: ChatTermsRequest, options?: CallOptions): Promise<Ok>;
+}
+
+export interface FeedApi {
+  /**
+   * `GET /v1/feed` — outbound feed-delivery status, not an event stream to
+   * read: the server pushes events to configured endpoints, and this reports
+   * how that dispatch is doing. Observed live on build
+   * `++Wardogs+Live-CL-533689` (2026-11-20); not in vendored spec 1.1.0.
+   */
+  get(options?: CallOptions): Promise<FeedStatus>;
 }
 
 export interface BansApi {
@@ -315,6 +372,12 @@ export interface MetaApi {
    * server is shedding admin requests.
    */
   health(options?: CallOptions): Promise<Health>;
+  /**
+   * `GET /v1/version` — engine and project build identity. Observed live on
+   * build `++Wardogs+Live-CL-533689` (2026-11-20); not in vendored spec 1.1.0.
+   * `build` duplicates `Capabilities.build` in structured form.
+   */
+  version(options?: CallOptions): Promise<ServerVersion>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -327,6 +390,8 @@ export interface WardogsClient {
 
   readonly status: StatusApi;
   readonly players: PlayersApi;
+  readonly chat: ChatApi;
+  readonly feed: FeedApi;
   readonly bans: BansApi;
   readonly reservedSlots: ReservedSlotsApi;
   readonly audit: AuditApi;
@@ -352,6 +417,16 @@ export interface WardogsClient {
   messagePlayer(steamId: string, message: string, options?: CallOptions): Promise<Ok>;
   /** Alias of `players.setFaction()`. */
   setPlayerFaction(steamId: string, faction: string, options?: CallOptions): Promise<Ok>;
+  /** Alias of `chat.get()`. Observed live; not in vendored spec 1.1.0. */
+  getChat(options?: CallOptions): Promise<Chat>;
+  /** Alias of `chat.list()`. */
+  listChatMessages(after?: number, limit?: number, options?: CallOptions): Promise<ChatMessage[]>;
+  /** Alias of `chat.getTerms()`. */
+  getChatTerms(options?: CallOptions): Promise<ChatTerms>;
+  /** Alias of `chat.setTerms()`. The request shape is unverified; see `chat.setTerms`. */
+  setChatTerms(terms: ChatTermsRequest, options?: CallOptions): Promise<Ok>;
+  /** Alias of `feed.get()`. */
+  getFeed(options?: CallOptions): Promise<FeedStatus>;
   /** Alias of `bans.list()`. */
   getBans(options?: CallOptions): Promise<Ban[]>;
   /** Alias of `bans.add()`. */
@@ -447,6 +522,8 @@ export interface WardogsClient {
   getServerId(options?: CallOptions): Promise<ServerId>;
   /** Alias of `meta.health()`. */
   getHealth(options?: CallOptions): Promise<Health>;
+  /** Alias of `meta.version()`. */
+  getVersion(options?: CallOptions): Promise<ServerVersion>;
   /** Alias of `broadcast()`. */
   sendBroadcast(message: string, options?: CallOptions): Promise<Ok>;
 
@@ -621,6 +698,22 @@ export function createClient(config: ClientConfig): WardogsClient {
       ),
   };
 
+  const chat: ChatApi = {
+    get: (options) => call<Chat>('GET', '/v1/chat', {}, options),
+    // `after`/`limit` are observed live; unknown query parameters are dropped
+    // here and the server silently ignores the ones it does not know.
+    list: async (after, limit, options) => {
+      const body = await call<Chat>('GET', '/v1/chat', { query: { after, limit } }, options);
+      return body.messages ?? [];
+    },
+    getTerms: (options) => call<ChatTerms>('GET', '/v1/chat/terms', {}, options),
+    setTerms: (terms, options) => call<Ok>('POST', '/v1/chat/terms', { body: terms }, options),
+  };
+
+  const feed: FeedApi = {
+    get: (options) => call<FeedStatus>('GET', '/v1/feed', {}, options),
+  };
+
   const bans: BansApi = {
     list: async (options) => {
       const body = await call<Bans>('GET', '/v1/bans', {}, options);
@@ -737,6 +830,7 @@ export function createClient(config: ClientConfig): WardogsClient {
     capabilities: (options) => call<Capabilities>('GET', '/v1/capabilities', {}, options),
     serverId: (options) => call<ServerId>('GET', '/v1/server-id', {}, options),
     health: (options) => call<Health>('GET', '/v1/health', {}, options),
+    version: (options) => call<ServerVersion>('GET', '/v1/version', {}, options),
   };
 
   /* ---------------------------------------------------------------------- */
@@ -777,6 +871,8 @@ export function createClient(config: ClientConfig): WardogsClient {
     baseUrl,
     status,
     players,
+    chat,
+    feed,
     bans,
     reservedSlots,
     audit,
@@ -795,6 +891,11 @@ export function createClient(config: ClientConfig): WardogsClient {
     killPlayer: players.kill,
     messagePlayer: players.message,
     setPlayerFaction: players.setFaction,
+    getChat: chat.get,
+    listChatMessages: chat.list,
+    getChatTerms: chat.getTerms,
+    setChatTerms: chat.setTerms,
+    getFeed: feed.get,
     getBans: bans.list,
     banPlayer: bans.add,
     unbanPlayer: bans.remove,
@@ -825,6 +926,7 @@ export function createClient(config: ClientConfig): WardogsClient {
     getCapabilities: meta.capabilities,
     getServerId: meta.serverId,
     getHealth: meta.health,
+    getVersion: meta.version,
     sendBroadcast: broadcast,
     broadcast,
 

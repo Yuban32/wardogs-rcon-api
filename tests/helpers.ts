@@ -3,7 +3,7 @@
  *
  * The library routes every request through a single `FetchLike` seam, so
  * capturing what it actually sends is a matter of handing it one of these.
- * That covers all 35 operations without a network, and lets the assertions be
+ * That covers all 42 operations without a network, and lets the assertions be
  * about the exact wire format — method, URL, headers, body — rather than about
  * an endpoint's return value.
  */
@@ -198,6 +198,100 @@ export function playerPayload(overrides: Record<string, unknown> = {}): Record<s
     deaths: 2,
     cash: 1500,
     pingMs: 32,
+    ...overrides,
+  };
+}
+
+/**
+ * One chat line for `GET /v1/chat` responses, transcribed from the live probe
+ * of build `++Wardogs+Live-CL-533689`. Every value is synthetic — the chat
+ * terms forbid storing or resharing real players' chat, so fixtures never
+ * carry captured text.
+ */
+export function chatMessagePayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    seq: 101,
+    sentUtc: '2026-11-20T12:00:00.000Z',
+    channel: 'Team',
+    faction: 'NATO',
+    steamId: '76561198000000001',
+    realName: 'Recruit',
+    hiddenName: 'Maple',
+    anonymous: false,
+    text: 'moving to B',
+    rawText: 'moving to B',
+    ping: false,
+    ...overrides,
+  };
+}
+
+/** The `GET /v1/chat` envelope. */
+export function chatPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const messages = (overrides.messages as unknown[]) ?? [chatMessagePayload()];
+  return {
+    latestSeq: 101,
+    messages,
+    count: messages.length,
+    ...overrides,
+  };
+}
+
+/** The `GET /v1/chat/terms` consent document. The text is synthetic. */
+export function chatTermsPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    requiredVersion: 1,
+    acceptedVersion: 1,
+    accepted: true,
+    text: 'Synthetic terms text for tests only.',
+    ...overrides,
+  };
+}
+
+/** The `GET /v1/feed` outbound-delivery status. The host is deliberately fake. */
+export function feedStatusPayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    enabled: true,
+    endpointCount: 1,
+    anyUnhealthy: false,
+    pausedForTerms: false,
+    endpoints: [
+      {
+        index: 0,
+        scheme: 'https',
+        host: 'feed.example.invalid',
+        healthy: true,
+        queued: 0,
+        inFlight: 0,
+        consecutiveFailures: 0,
+        sentTotal: 42,
+        droppedTotal: 0,
+        lastHttpStatus: 200,
+        lastSuccessUnixSeconds: 1795106568,
+      },
+    ],
+    ...overrides,
+  };
+}
+
+/** The `GET /v1/version` build identity. */
+export function serverVersionPayload(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    build: '++Wardogs+Live-CL-533689',
+    engine: {
+      major: 5,
+      minor: 7,
+      patch: 4,
+      changelist: 533689,
+      compatibleChangelist: 533126,
+      branch: '//Wardogs/Live',
+    },
+    project: { name: 'Wardogs', version: 'v0.3.0' },
     ...overrides,
   };
 }

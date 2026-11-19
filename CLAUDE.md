@@ -41,7 +41,7 @@ node examples/browser-proxy-server.mjs  # then open examples/cdn.html
 
 ## The web panel (`web/`)
 
-A React + Vite control panel for a running server: all 35 routes with forms, capability gating, live polling, a config editor that respects `If-Match`, and a console tab over the hosting panel's own web socket. It is a **separate package** — its own `package.json`, its own lockfile, its own install — and deliberately not an npm workspace, so the root `npm ci`, `verify` and publish paths are untouched. `scripts/check-exports.mjs` asserts `web` is never published.
+A React + Vite control panel for a running server: all 42 routes with forms, capability gating, live polling, a config editor that respects `If-Match`, and a console tab over the hosting panel's own web socket. It is a **separate package** — its own `package.json`, its own lockfile, its own install — and deliberately not an npm workspace, so the root `npm ci`, `verify` and publish paths are untouched. `scripts/check-exports.mjs` asserts `web` is never published.
 
 **pnpm in `web/`, npm at the root.** The two never meet: this package is not a workspace member, and the root jobs never enter it. CI mirrors the split — `npm ci` for the library, `pnpm install --frozen-lockfile` for the panel.
 
@@ -74,7 +74,7 @@ src/umd.ts   ── UMD, WardogsRCON global, ES2018  (vite.umd.config.ts, second
 
 - `core/http.ts` — the transport. `request()` implements the timeout wiring, the GET-only retry policy, body decoding and the mapping of transport failures onto the error vocabulary. The `http://`-to-a-remote-host guard lives in `normalizeBaseUrl`. All of this exists exactly once, here, so it cannot drift per endpoint.
 - `core/client.ts` — `createClient` builds every namespace method over one private `call()` that invokes `request()`. Each namespaced method also has a flat alias (`client.kickPlayer` === `client.players.kick`), assembled at the bottom of the file. Config validation happens at construction, not first request.
-- `core/routes.ts` — `RouteId` + `ROUTE_IDS`: the canonical list of all 35 operations as `"METHOD /v1/..."`, the same form `GET /v1/capabilities` reports. `normalizeRoute` collapses path-parameter _names_ to `{*}` and drops trailing slashes; without it a capability check reports a supported route as unsupported, because the spec writes `{steamId}` where the prose reference writes `{id}`.
+- `core/routes.ts` — `RouteId` + `ROUTE_IDS`: the canonical list of all 42 operations as `"METHOD /v1/..."` (37 declared by vendored spec 1.1.0, plus the 5 pinned in `OBSERVED_ROUTES` that a live probe found and the spec does not declare), the same form `GET /v1/capabilities` reports. `normalizeRoute` collapses path-parameter _names_ to `{*}` and drops trailing slashes; without it a capability check reports a supported route as unsupported — the live server writes `{id}` for players and `{map}` for catalog paths where the spec writes `{steamId}`/`{id}`, so the names differ per build and must not be compared.
 - `core/types.ts` — hand-written mirrors of `components/schemas`, each `extends Extensible` so undocumented server fields do not break callers.
 - `core/errors.ts` — `Wardogs*`-prefixed hierarchy, all carrying `method` and `url`.
 
@@ -101,9 +101,11 @@ src/umd.ts   ── UMD, WardogsRCON global, ES2018  (vite.umd.config.ts, second
 The spec is the source of truth, and several checks are wired to it, so a new endpoint touches all of:
 
 1. `spec/openapi.json` (re-vendor) and `SPEC_VERSION` / `SPEC_UPDATED` in `src/version.ts`.
-2. `src/core/routes.ts` — both the `RouteId` union and `ROUTE_IDS`.
-3. `src/core/types.ts` — a type per schema name; `tests/routes.test.ts` asserts the type list and the schema list are identical, and that `ROUTE_IDS` equals the spec's routes exactly (35 across 31 paths).
+2. `src/core/routes.ts` — both the `RouteId` union and `ROUTE_IDS`. A route the spec does not declare also goes into `OBSERVED_ROUTES` in the same file: the test asserts the spec-vs-`ROUTE_IDS` diff equals that list exactly, and that the spec has not absorbed it yet (a re-vendor that adopts one fails CI until it is reclassified). Never hand-edit `spec/openapi.json` to make a test pass — it is a verbatim snapshot.
+3. `src/core/types.ts` — a type per schema name; `tests/routes.test.ts` asserts the type list and the schema list are identical, that `ROUTE_IDS` covers the spec's routes exactly (37 across 33 paths), and that the only extra routes are the 5 pinned in `OBSERVED_ROUTES` (42 total). The spec-external types (like `MapExperiences`) are pinned in the test's additions map.
 4. `src/core/client.ts` — the namespace method, plus its flat alias.
 5. `src/index.ts` — any new exported type.
 6. Docs, in both languages: `README.md` + `README.zh-CN.md` tables, and `docs/api.md` + `docs/api.zh-CN.md`. `scripts/check-exports.mjs` fails if a published English document lacks a link to its `zh-CN` counterpart or vice versa.
 7. A `CHANGELOG.md` entry, with the same version present in `CHANGELOG.zh-CN.md` — `npm run check:changelog` enforces both.
+
+When a route is known only from a live probe (no spec schema exists), its response type is a transcription of the probe — keep the fields observed, keep everything `optional` on `Extensible`, and say in the JSDoc which build it was observed on. Fixture values in tests and docs are always synthetic: never paste captured server payloads (player names, chat, hosts) into the repo.

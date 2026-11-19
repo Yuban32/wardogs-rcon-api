@@ -214,9 +214,17 @@ function RouteForm({ spec }: { spec: RouteSpec }) {
         <code>{pathTemplate}</code>
         <span className="dim">{spec.summary}</span>
         {spec.mutating && <span className="tag write">changes state</span>}
+        {spec.observed && <span className="tag">observed live</span>}
         {supported === false && <span className="tag">not advertised</span>}
         {supported === true && <span className="tag ok">advertised</span>}
       </div>
+
+      {spec.observed && (
+        <p className="hint">
+          {spec.observed} Its response shape comes from a live probe, not the published spec — and
+          builds older than the one it was probed on may answer 404.
+        </p>
+      )}
 
       {spec.owner === 'config' && (
         <p className="note">

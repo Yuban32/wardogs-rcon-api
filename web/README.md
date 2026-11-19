@@ -42,7 +42,7 @@ full-access admin password.
 | ------------ | ------------------------------------------------------------------------------ |
 | Status       | Live match state, one-shot or polled, with change and roster deltas            |
 | Players      | The roster, with each faction colour resolved by name                          |
-| Routes       | All 35 operations, with per-route forms and semantic response rendering        |
+| Routes       | All 42 operations, with per-route forms and semantic response rendering        |
 | Capabilities | Which routes this server actually implements, and how it spells them           |
 | Config       | Read, edit, validate and apply `ServerSettings.ini` with `If-Match`            |
 | Log          | Every request the panel made, with status, duration, size and the mapped error |

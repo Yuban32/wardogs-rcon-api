@@ -171,6 +171,22 @@ describe('route comparison', () => {
     await expect(probe.supports('PATCH /v1/players/{steamId}')).resolves.toBe(false);
   });
 
+  it('gates the observed-live routes like any other', async () => {
+    // The chat/feed/version family came from a live probe, not the spec, and
+    // older builds may not serve it — which is exactly what capabilities is
+    // for. These ids have no path parameters, so the comparison is the plain
+    // string one; pinning it here keeps a future normalization change from
+    // silently breaking the gating story the docs tell.
+    const { probe } = probeWith(() =>
+      capabilitiesPayload(['GET /v1/chat', 'POST /v1/chat/terms', 'GET /v1/version']),
+    );
+
+    await expect(probe.supports('GET /v1/chat')).resolves.toBe(true);
+    await expect(probe.supports('POST /v1/chat/terms')).resolves.toBe(true);
+    await expect(probe.supports('GET /v1/version')).resolves.toBe(true);
+    await expect(probe.supports('GET /v1/feed')).resolves.toBe(false);
+  });
+
   it('compares case-insensitively on the method', async () => {
     const { probe } = probeWith(() => capabilitiesPayload(['get /v1/status']));
     await expect(probe.supports('GET /v1/status')).resolves.toBe(true);

@@ -7,7 +7,7 @@ import { GROUP_ORDER, ROUTE_SPECS } from '../lib/routes';
 import { useSession } from '../lib/session';
 
 /**
- * Which of the 35 operations this particular server implements.
+ * Which of the 42 operations this particular server implements.
  *
  * Not every server enables every route, and the reference says the admin panel
  * gates its own UI on exactly this call — offering "change faction" only when

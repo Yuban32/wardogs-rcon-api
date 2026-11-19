@@ -6,9 +6,11 @@
  * array. Keeping that correspondence lets capability checks take a `RouteId`
  * instead of a hand-typed string.
  *
- * `tests/routes.test.ts` asserts this union matches the vendored spec exactly,
- * so adding or losing an endpoint fails the build's test run rather than
- * silently producing "route not supported" at runtime.
+ * `tests/routes.test.ts` asserts this union covers the vendored spec exactly,
+ * with one pinned exception: {@link OBSERVED_ROUTES}, routes probed on live
+ * servers that the spec does not declare yet. Adding or losing an endpoint
+ * fails the build's test run rather than silently producing "route not
+ * supported" at runtime.
  */
 
 /** Every operation in the API, as `"METHOD /v1/..."`. */
@@ -21,6 +23,20 @@ export type RouteId =
   | 'POST /v1/players/{steamId}/kill'
   | 'POST /v1/players/{steamId}/message'
   | 'PATCH /v1/players/{steamId}'
+  // Chat and feed (observed live — not in spec 1.1.0)
+  /**
+   * Observed live on server build `++Wardogs+Live-CL-533689` (2026-11-20); the
+   * vendored spec 1.1.0 does not declare it. Older builds may answer 404 and
+   * omit it from `GET /v1/capabilities` — gate on capabilities. See
+   * {@link OBSERVED_ROUTES}.
+   */
+  | 'GET /v1/chat'
+  /** Observed on build `++Wardogs+Live-CL-533689` (2026-11-20). See {@link OBSERVED_ROUTES}. */
+  | 'GET /v1/chat/terms'
+  /** Observed on build `++Wardogs+Live-CL-533689` (2026-11-20). See {@link OBSERVED_ROUTES}. */
+  | 'POST /v1/chat/terms'
+  /** Observed on build `++Wardogs+Live-CL-533689` (2026-11-20). See {@link OBSERVED_ROUTES}. */
+  | 'GET /v1/feed'
   // Moderation
   | 'GET /v1/bans'
   | 'POST /v1/bans'
@@ -39,6 +55,8 @@ export type RouteId =
   | 'GET /v1/server-id'
   | 'GET /v1/health'
   | 'GET /v1/audit'
+  /** Observed on build `++Wardogs+Live-CL-533689` (2026-11-20). See {@link OBSERVED_ROUTES}. */
+  | 'GET /v1/version'
   // Match control
   | 'POST /v1/broadcast'
   | 'POST /v1/match/map'
@@ -81,6 +99,14 @@ export const ROUTE_IDS = [
   'POST /v1/players/{steamId}/kill',
   'POST /v1/players/{steamId}/message',
   'PATCH /v1/players/{steamId}',
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  'GET /v1/chat',
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  'GET /v1/chat/terms',
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  'POST /v1/chat/terms',
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  'GET /v1/feed',
   'GET /v1/bans',
   'POST /v1/bans',
   'DELETE /v1/bans/{steamId}',
@@ -93,6 +119,8 @@ export const ROUTE_IDS = [
   'GET /v1/server-id',
   'GET /v1/health',
   'GET /v1/audit',
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  'GET /v1/version',
   'POST /v1/broadcast',
   'POST /v1/match/map',
   'POST /v1/match/end',
@@ -120,6 +148,29 @@ export const ROUTE_IDS = [
   'GET /v1/config',
   'PUT /v1/config',
   'POST /v1/config/validate',
+] as const satisfies readonly RouteId[];
+
+/**
+ * Routes observed on live servers but absent from vendored spec 1.1.0.
+ *
+ * The spec is a snapshot (2026-09-14); the server moves. These five were probed
+ * on build `++Wardogs+Live-CL-533689` (2026-11-20) and are served for real, so
+ * the library supports them — but unlike the rest of {@link RouteId} they are
+ * not backed by a published schema, so their response types are transcriptions
+ * of that probe rather than mirrors of `components/schemas`, and builds older
+ * than CL-533689 may not serve them at all. Gate on capabilities before calling.
+ *
+ * `tests/routes.test.ts` asserts `ROUTE_IDS` minus the spec's routes equals
+ * this list exactly, and that the spec does not declare any of it yet. A spec
+ * re-vendor that adopts one of these therefore fails CI until it is
+ * reclassified as a spec route and dropped from here.
+ */
+export const OBSERVED_ROUTES = [
+  'GET /v1/chat',
+  'GET /v1/chat/terms',
+  'POST /v1/chat/terms',
+  'GET /v1/feed',
+  'GET /v1/version',
 ] as const satisfies readonly RouteId[];
 
 const ROUTE_ID_SET: ReadonlySet<string> = new Set(ROUTE_IDS);

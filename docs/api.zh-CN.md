@@ -1,6 +1,6 @@
 # API 参考
 
-`/v1` 接口暴露的全部 37 个操作,含 TypeScript 签名与对应的 `curl` 命令。路径均相对于 `baseUrl`,每个请求都携带 `Authorization: Bearer <token>`。
+`/v1` 接口暴露的全部 42 个操作 —— vendored spec 声明的 37 个,外加在 build `++Wardogs+Live-CL-533689`(2026-11-20)上实测发现的 5 个 —— 含 TypeScript 签名与对应的 `curl` 命令。路径均相对于 `baseUrl`,每个请求都携带 `Authorization: Bearer <token>`。
 
 下文 `$BASE` 指你的服务器地址,例如 `https://my-server.example:7776`。
 
@@ -26,6 +26,22 @@
 当前服务器对这八条一律返回 `404`,并且在 `GET /v1/capabilities` 中不再列出;旧 build 仍然提供,这正是客户端方法保留且依旧可用的原因。每个方法都带有 `@deprecated` 标签并写明替代方案,支持该标注的编辑器会在调用处提示。
 
 请用 `caps.supports(...)` 判断,而不是靠捕获 `404` —— `capabilities.routes` 存在的意义就在于此。
+
+---
+
+## 线上实测,spec 1.1.0 未记载
+
+有五条路由,当前服务器确实在提供,但 vendored spec 1.1.0 完全没有声明。它们是在 build `++Wardogs+Live-CL-533689`(2026-11-20)上实测发现的;库照样支持 —— 只是响应类型转写自实测数据,而不是镜像自 schema,因为根本没有 schema。库以 `OBSERVED_ROUTES` 导出这份钉死的清单。
+
+| 实测发现              | 客户端方法             | 说明                           |
+| --------------------- | ---------------------- | ------------------------------ |
+| `GET /v1/chat`        | `client.chat.get/list` | 当前地图的内存聊天缓冲         |
+| `GET /v1/chat/terms`  | `client.chat.getTerms` | 是法律同意书,不是过滤词        |
+| `POST /v1/chat/terms` | `client.chat.setTerms` | 请求体形状未验证 —— 见对应章节 |
+| `GET /v1/feed`        | `client.feed.get`      | 外发投递状态,不是可读的事件流  |
+| `GET /v1/version`     | `client.meta.version`  | 结构化的 build 标识            |
+
+早于 CL-533689 的 build 可能对它们返回 `404` 且不在 `GET /v1/capabilities` 中列出 —— 和其他路由一样,先过 `caps.supports(...)` 门控。
 
 ---
 
@@ -125,6 +141,116 @@ client.broadcast(message: string, options?): Promise<Ok>
 ```
 
 官方参考把它归在「Players」分组下,但它并不以玩家为作用域,因此在客户端上它位于顶层。
+
+---
+
+## 聊天与事件流
+
+在 build `++Wardogs+Live-CL-533689`(2026-11-20)上实测发现;spec 1.1.0 未记载。以下形状转写自实测 —— 是观察到的事实,不是 spec 的承诺。在更旧的 build 上调用前,先过能力门控。
+
+### `GET /v1/chat`
+
+```ts
+client.chat.get(options?): Promise<Chat>
+client.chat.list(after?, limit?, options?): Promise<ChatMessage[]>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/chat?after=1001&limit=50"
+```
+
+```jsonc
+{
+  "latestSeq": 1042,
+  "messages": [
+    {
+      "seq": 1001,
+      "sentUtc": "2026-01-01T12:00:00.000Z",
+      "channel": "Team", // 实测还见过 "Global"
+      "faction": "NATO",
+      "steamId": "76561198000000001", // 字符串,与库内其他地方一致
+      "realName": "Recruit",
+      "hiddenName": "Maple", // 玩家匿名时他人看到的别名
+      "anonymous": false,
+      "text": "moving to B",
+      "rawText": "moving to B",
+      "ping": false, // 消息 @提及了某人时为 true
+    },
+  ],
+  "count": 1,
+}
+```
+
+缓冲区在内存里,只属于当前地图 —— 重启或换图即清空。实测中一次不带参数的 GET 只返回了**最旧的 100 条**(`latestSeq` 早已远超它),所以不要假设一次调用能拿到全量:增量轮询,记住 `latestSeq`,下次作为 `after` 传回,只取 `seq` 严格大于水位线的消息。
+
+实测确认了两个查询参数;无法识别的参数会被静默忽略:
+
+- `after=<seq>` —— 只返回该水位线之后的消息(增量轮询)。
+- `limit=<n>` —— 截取缓冲区**最旧**的 N 条,不是最新的。违反直觉,但服务器就是这么做的。
+
+聊天条款(见下)禁止超出审核需要存储或传播玩家聊天。请把这份载荷当作易逝数据对待,并留意你所在司法辖区的隐私与数据保护法。
+
+### `GET /v1/chat/terms` · `POST /v1/chat/terms`
+
+```ts
+client.chat.getTerms(options?): Promise<ChatTerms>
+client.chat.setTerms(terms: ChatTermsRequest, options?): Promise<Ok>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/chat/terms"
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"acceptedVersion": 1}' "$BASE/v1/chat/terms"
+```
+
+```jsonc
+{
+  "requiredVersion": 1,
+  "acceptedVersion": 1, // 本 token 上次接受的版本
+  "accepted": true,
+  "text": "…法律条款文本…",
+}
+```
+
+这是**法律条款,不是过滤词**:查看聊天数据以接受隐私告知为前提,未接受前外发事件流会暂停(`GET /v1/feed` 的 `pausedForTerms`)。请把 `text` 原样展示给服务器管理员,由他们自己决定。
+
+`POST` 记录接受动作。**请求体形状未验证** —— 这次写操作被刻意未做实测(它会记录一份同意决定)。客户端把你给出的 `ChatTermsRequest` 原样发送(按推断是 `{ "acceptedVersion": n }`);依赖它之前请先对自己的服务器验证。写操作,永不重试。
+
+### `GET /v1/feed`
+
+```ts
+client.feed.get(options?): Promise<FeedStatus>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/feed"
+```
+
+```jsonc
+{
+  "enabled": true,
+  "endpointCount": 1,
+  "anyUnhealthy": false,
+  "pausedForTerms": false, // 条款未接受前投递暂停
+  "endpoints": [
+    {
+      "index": 0,
+      "scheme": "https",
+      "host": "feed.example.invalid", // 事件推送目标
+      "healthy": true,
+      "queued": 0,
+      "inFlight": 0,
+      "consecutiveFailures": 0,
+      "sentTotal": 42,
+      "droppedTotal": 0,
+      "lastHttpStatus": 200,
+      "lastSuccessUnixSeconds": 1795106568,
+    },
+  ],
+}
+```
+
+`feed` 不是可读的事件流:服务器把事件**推送**到配置的端点,这条路由报告的是外发调度的情况。`queued` 持续增长、`consecutiveFailures` 为正、或 `droppedTotal` 上涨,都意味着接收端正在掉队或已下线。
 
 ---
 
@@ -447,6 +573,34 @@ interface Health {
 
 运行时长、当前连接数与游戏线程工作队列。`gameThreadQueue.depth` 持续攀升或 `rejectedTotal` 上涨,说明服务器正在丢弃管理请求 —— 这是该让轮询退避的信号,而不是加大重试力度的信号。
 
+### `GET /v1/version`
+
+```ts
+client.meta.version(options?): Promise<ServerVersion>
+client.getVersion(options?): Promise<ServerVersion>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/version"
+```
+
+```jsonc
+{
+  "build": "++Wardogs+Live-CL-533689",
+  "engine": {
+    "major": 5,
+    "minor": 7,
+    "patch": 4,
+    "changelist": 533689,
+    "compatibleChangelist": 533126,
+    "branch": "//Wardogs/Live",
+  },
+  "project": { "name": "Wardogs", "version": "v0.3.0" },
+}
+```
+
+线上实测发现;spec 1.1.0 未记载。`build` 与 `Capabilities.build` 是同一个值;拆开的引擎版本号是为了让调用方无需解析 build 字符串即可比较版本。
+
 ### 用 `GET /v1/status` 做连通性探测
 
 ```ts
@@ -492,10 +646,10 @@ await client.status.get({ timeoutMs: 3000, signal: controller.signal });
 
 ## 路由标识
 
-`ROUTE_IDS` 与 `RouteId` 类型以 `"METHOD /path"` 字符串形式列出了全部 37 个操作,这正是 `capabilities.routes` 使用的格式。
+`ROUTE_IDS` 与 `RouteId` 类型以 `"METHOD /path"` 字符串形式列出了全部 42 个操作,这正是 `capabilities.routes` 使用的格式 —— 37 个来自 vendored spec,外加实测来源的 5 个,钉在 `OBSERVED_ROUTES` 里。
 
 ```ts
-import { ROUTE_IDS, normalizeRoute, isRouteId } from '@yuban32/wardogs-rcon-api';
+import { ROUTE_IDS, OBSERVED_ROUTES, normalizeRoute, isRouteId } from '@yuban32/wardogs-rcon-api';
 ```
 
-`normalizeRoute('patch /v1/players/{id}/')` → `'PATCH /v1/players/{*}'`。一致性测试正是用这些字符串与随包携带的规范副本比对,因此服务端一旦变更,构建就会失败。
+`normalizeRoute('patch /v1/players/{id}/')` → `'PATCH /v1/players/{*}'`。一致性测试正是用这些字符串与随包携带的规范副本比对 —— spec 声明的路由必须全部存在,spec 与 `ROUTE_IDS` 的差集必须恰好等于 `OBSERVED_ROUTES` —— 因此服务端一旦变更,构建就会失败。

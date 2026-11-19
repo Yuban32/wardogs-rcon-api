@@ -1,5 +1,5 @@
 /**
- * Request-construction tests for all 35 operations.
+ * Request-construction tests for all 42 operations.
  *
  * Every operation is asserted on its wire representation — method, path, query,
  * headers and body — rather than on its parsed return value. That is where the
@@ -12,9 +12,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createClient, ROUTE_IDS, type WardogsClient } from '../src/index.js';
 import {
+  chatPayload,
+  chatTermsPayload,
   createRecordingFetch,
+  feedStatusPayload,
   parseRequest,
   playerPayload,
+  serverVersionPayload,
   statusPayload,
   type RecordingFetch,
 } from './helpers.js';
@@ -179,6 +183,114 @@ describe('players', () => {
     await client.players.kick('a/b?c');
 
     expect(parseRequest(rec.last()).path).toBe('/v1/players/a%2Fb%3Fc/kick');
+  });
+});
+
+describe('chat and feed — observed live', () => {
+  // These five operations are served by build ++Wardogs+Live-CL-533689
+  // (2026-11-20) but declared nowhere in vendored spec 1.1.0, so their fixtures
+  // transcribe the live probe. All values are synthetic: the chat terms forbid
+  // storing or resharing players' chat, so no captured content appears here.
+
+  it('GET /v1/chat returns the envelope verbatim, without unwrapping', async () => {
+    rec.setResponses([{ body: chatPayload() }]);
+    const chat = await client.chat.get();
+
+    expect(rec.last().method).toBe('GET');
+    expect(parseRequest(rec.last()).path).toBe('/v1/chat');
+    // `get()` hands back the whole envelope — the caller needs `latestSeq` for
+    // the next `list(after)` as much as it needs the messages.
+    expect(chat.latestSeq).toBe(101);
+    expect(chat.messages).toHaveLength(1);
+    expect(chat.count).toBe(1);
+  });
+
+  it('GET /v1/chat unwraps the messages array', async () => {
+    rec.setResponses([{ body: chatPayload() }]);
+    const messages = await client.chat.list();
+
+    expect(parseRequest(rec.last()).path).toBe('/v1/chat');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.steamId).toBe('76561198000000001');
+  });
+
+  it('GET /v1/chat tolerates a missing messages key', async () => {
+    rec.setResponses([{ body: { latestSeq: 7 } }]);
+    await expect(client.chat.list()).resolves.toEqual([]);
+  });
+
+  it('GET /v1/chat forwards the after watermark as a query parameter', async () => {
+    rec.setResponses([{ body: chatPayload({ messages: [], count: 0 }) }]);
+    await client.chat.list(101);
+
+    expect(parseRequest(rec.last()).query).toEqual({ after: '101' });
+  });
+
+  it('GET /v1/chat forwards after and limit together', async () => {
+    rec.setResponses([{ body: chatPayload({ messages: [], count: 0 }) }]);
+    await client.chat.list(101, 50);
+
+    expect(parseRequest(rec.last()).query).toEqual({ after: '101', limit: '50' });
+  });
+
+  it('GET /v1/chat sends no query when both parameters are omitted', async () => {
+    rec.setResponses([{ body: chatPayload() }]);
+    await client.chat.list();
+
+    expect(parseRequest(rec.last()).query).toEqual({});
+  });
+
+  it('GET /v1/chat/terms returns the consent document', async () => {
+    rec.setResponses([{ body: chatTermsPayload() }]);
+    const terms = await client.chat.getTerms();
+
+    expect(parseRequest(rec.last()).path).toBe('/v1/chat/terms');
+    expect(terms.accepted).toBe(true);
+    expect(terms.requiredVersion).toBe(1);
+  });
+
+  it('POST /v1/chat/terms sends the body as JSON', async () => {
+    rec.setResponses([ok()]);
+    await client.chat.setTerms({ acceptedVersion: 1 });
+
+    const request = parseRequest(rec.last());
+    expect(rec.last().method).toBe('POST');
+    expect(request.path).toBe('/v1/chat/terms');
+    expect(request.body).toEqual({ acceptedVersion: 1 });
+    expect(rec.last().headers['Content-Type']).toBe('application/json');
+  });
+
+  it('POST /v1/chat/terms is never retried, because it records a consent', async () => {
+    // Same rule as every other write: a retried POST is indistinguishable
+    // from a second acceptance, and a transport failure does not say whether
+    // the server acted.
+    const retrying = createClient({ baseUrl: BASE, token: TOKEN, fetch: rec.fetch, retries: 3 });
+    rec.setResponses([{ throws: new TypeError('fetch failed') }]);
+
+    await expect(retrying.chat.setTerms({ acceptedVersion: 1 })).rejects.toThrow();
+    expect(rec.count).toBe(1);
+  });
+
+  it('GET /v1/feed returns the outbound-delivery status', async () => {
+    rec.setResponses([{ body: feedStatusPayload() }]);
+    const feed = await client.feed.get();
+
+    expect(rec.last().method).toBe('GET');
+    expect(parseRequest(rec.last()).path).toBe('/v1/feed');
+    expect(feed.enabled).toBe(true);
+    expect(feed.endpoints).toHaveLength(1);
+    expect(feed.endpoints[0]?.healthy).toBe(true);
+  });
+
+  it('GET /v1/version returns the build identity', async () => {
+    rec.setResponses([{ body: serverVersionPayload() }]);
+    const version = await client.meta.version();
+
+    expect(rec.last().method).toBe('GET');
+    expect(parseRequest(rec.last()).path).toBe('/v1/version');
+    expect(version.build).toBe('++Wardogs+Live-CL-533689');
+    expect(version.engine.changelist).toBe(533689);
+    expect(version.project.name).toBe('Wardogs');
   });
 });
 
@@ -649,6 +761,16 @@ describe('flat aliases', () => {
 
     expect(parseRequest(rec.last()).path).toBe('/v1/broadcast');
   });
+
+  it('reach the observed-live operations too', async () => {
+    rec.setResponses([{ body: serverVersionPayload() }, { body: chatPayload() }]);
+    await client.getVersion();
+    await client.listChatMessages(101);
+
+    expect(parseRequest(rec.at(0)).path).toBe('/v1/version');
+    expect(parseRequest(rec.at(1)).path).toBe('/v1/chat');
+    expect(parseRequest(rec.at(1)).query).toEqual({ after: '101' });
+  });
 });
 
 describe('ping', () => {
@@ -759,6 +881,11 @@ describe('route coverage', () => {
         () => client.players.message('76561198000000001', 'x'),
       ],
       ['PATCH /v1/players/{steamId}', () => client.players.setFaction('76561198000000001', 'RUS')],
+      ['GET /v1/chat', () => client.chat.get()],
+      ['GET /v1/chat/terms', () => client.chat.getTerms()],
+      ['POST /v1/chat/terms', () => client.chat.setTerms({})],
+      ['GET /v1/feed', () => client.feed.get()],
+      ['GET /v1/version', () => client.meta.version()],
       ['GET /v1/bans', () => client.bans.list()],
       ['POST /v1/bans', () => client.bans.add('76561198000000001')],
       ['DELETE /v1/bans/{steamId}', () => client.bans.remove('76561198000000001')],

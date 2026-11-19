@@ -275,6 +275,150 @@ export interface MapAlternators extends Ok {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Chat, feed and version — observed live, not in spec 1.1.0                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One chat line, as served by `GET /v1/chat` on build
+ * `++Wardogs+Live-CL-533689` (2026-11-20).
+ *
+ * This route is not in vendored spec 1.1.0 — see {@link OBSERVED_ROUTES} — so
+ * these fields are transcribed from a live probe rather than mirrored from the
+ * spec. A future build may add fields (absorbed by {@link Extensible}) or
+ * tighten what it sends, which is why everything stays optional.
+ *
+ * `steamId` is a string for the same reason as everywhere else in this
+ * library: it is a 64-bit value, and a JS number would silently corrupt it.
+ */
+export interface ChatMessage extends Extensible {
+  /** Monotonic sequence within the server's in-memory chat buffer. */
+  seq: number;
+  /** ISO 8601 timestamp, e.g. `"2026-11-19T16:17:08.869Z"`. */
+  sentUtc: string;
+  /** Observed values: `"Team"`, `"Global"`. Left a string — expect more. */
+  channel: string;
+  /** Server-defined faction name; match to `Status.factionScores` by name. */
+  faction: string;
+  /** SteamID64 — always a string, never a number. */
+  steamId: string;
+  /** The player's real in-game name. */
+  realName: string;
+  /** The anonymized alias other players see when `anonymous` is set. */
+  hiddenName: string;
+  /** `true` when the player plays anonymously; `realName` is still reported to admins. */
+  anonymous: boolean;
+  /** Rendered text (mentions may be rewritten). */
+  text: string;
+  /** Text exactly as typed. */
+  rawText: string;
+  /** `true` when the message mentions (`@`) someone. */
+  ping: boolean;
+}
+
+/**
+ * Envelope of `GET /v1/chat`, observed on build `++Wardogs+Live-CL-533689`
+ * (2026-11-20). Not in vendored spec 1.1.0 — see {@link OBSERVED_ROUTES}.
+ *
+ * The buffer is in-memory for the current map only, and a plain GET returned
+ * only the oldest 100 in observation — `latestSeq` was well past the last
+ * message sent back. Poll via `client.chat.list(after)` with `latestSeq` as
+ * the watermark rather than assuming one call returned the whole buffer.
+ */
+export interface Chat extends Extensible {
+  latestSeq: number;
+  messages: ChatMessage[];
+  /** Length of `messages`. Observed on every response, including empty ones. */
+  count: number;
+}
+
+/**
+ * The chat-viewing consent document, from `GET /v1/chat/terms`, observed on
+ * build `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 —
+ * see {@link OBSERVED_ROUTES}.
+ *
+ * These are legal terms, not a word filter: the text forbids recording or
+ * resharing players' chat beyond what moderation requires, and the outbound
+ * feed pauses (`pausedForTerms`) until it is accepted.
+ */
+export interface ChatTerms extends Extensible {
+  requiredVersion: number;
+  /** The version this token last accepted; less than `requiredVersion` means re-acceptance is due. */
+  acceptedVersion: number;
+  accepted: boolean;
+  /** The terms text itself. Keep it verbatim when showing it to the operator. */
+  text: string;
+}
+
+/**
+ * Body of `POST /v1/chat/terms`.
+ *
+ * UNVERIFIED: the operation was not probed against a live server (the write
+ * would record a consent decision), so this shape is inferred from
+ * {@link ChatTerms} — `acceptedVersion` is the only field the GET exposes as
+ * a version. Verify against your own server before relying on it.
+ */
+export interface ChatTermsRequest extends Extensible {
+  acceptedVersion?: number;
+}
+
+/**
+ * Outbound feed-delivery status, from `GET /v1/feed`, observed on build
+ * `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 — see
+ * {@link OBSERVED_ROUTES}.
+ *
+ * `feed` is not an event stream to read: the server pushes events out to the
+ * configured endpoints, and this route reports how that dispatch is doing.
+ */
+export interface FeedStatus extends Extensible {
+  enabled: boolean;
+  endpointCount: number;
+  anyUnhealthy: boolean;
+  /** Delivery paused because the chat terms have not been accepted. */
+  pausedForTerms: boolean;
+  /** One row per configured push target. Inline literal — spec-free shape, used once. */
+  endpoints: {
+    index: number;
+    scheme: string;
+    host: string;
+    healthy: boolean;
+    queued: number;
+    inFlight: number;
+    consecutiveFailures: number;
+    sentTotal: number;
+    droppedTotal: number;
+    lastHttpStatus: number;
+    /** Unix seconds of the last successful delivery. */
+    lastSuccessUnixSeconds: number;
+  }[];
+}
+
+/**
+ * Build identity, from `GET /v1/version`, observed on build
+ * `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 — see
+ * {@link OBSERVED_ROUTES}.
+ *
+ * `build` duplicates `Capabilities.build`; the split-out engine numbers exist
+ * so callers can compare versions without parsing the build string.
+ */
+export interface ServerVersion extends Extensible {
+  /** e.g. `"++Wardogs+Live-CL-533689"`. Same value `Capabilities.build` reports. */
+  build: string;
+  engine: {
+    major: number;
+    minor: number;
+    patch: number;
+    changelist: number;
+    compatibleChangelist: number;
+    branch: string;
+  };
+  project: {
+    name: string;
+    /** e.g. `"v0.3.0"`. The game's version, not this library's. */
+    version: string;
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Sponsor                                                                     */
 /* -------------------------------------------------------------------------- */
 

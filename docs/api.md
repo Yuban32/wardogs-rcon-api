@@ -1,6 +1,6 @@
 # API reference
 
-All 37 operations the `/v1` interface exposes, with their TypeScript signature and a `curl` equivalent. Paths are relative to `baseUrl`; every request carries `Authorization: Bearer <token>`.
+All 42 operations the `/v1` interface exposes — the 37 the vendored spec declares, plus 5 observed live on build `++Wardogs+Live-CL-533689` (2026-11-20) — with their TypeScript signature and a `curl` equivalent. Paths are relative to `baseUrl`; every request carries `Authorization: Bearer <token>`.
 
 `$BASE` below stands for your server, e.g. `https://my-server.example:7776`.
 
@@ -26,6 +26,22 @@ Eight write routes were removed from the server in build `++Wardogs+Live-CL-5012
 A current server answers `404` for all eight and omits them from `GET /v1/capabilities`; older builds still serve them, which is why the client methods remain and still work. Each carries an `@deprecated` tag naming its replacement, so an editor that renders those will flag the call site.
 
 Check with `caps.supports(...)` rather than catching a `404` — that is exactly what `capabilities.routes` is for.
+
+---
+
+## Observed live, not in spec 1.1.0
+
+Five routes are served by current servers but declared nowhere in vendored spec 1.1.0. They were probed on build `++Wardogs+Live-CL-533689` (2026-11-20), and the library supports them anyway — with response types transcribed from that probe rather than mirrored from a schema, because no schema exists. The library exports the pinned list as `OBSERVED_ROUTES`.
+
+| Observed              | Client method          | Note                                        |
+| --------------------- | ---------------------- | ------------------------------------------- |
+| `GET /v1/chat`        | `client.chat.get/list` | In-memory buffer for the current map        |
+| `GET /v1/chat/terms`  | `client.chat.getTerms` | A legal consent document, not a word filter |
+| `POST /v1/chat/terms` | `client.chat.setTerms` | Body shape unverified — see its section     |
+| `GET /v1/feed`        | `client.feed.get`      | Outbound delivery status, not an event feed |
+| `GET /v1/version`     | `client.meta.version`  | Build identity, in structured form          |
+
+Builds older than CL-533689 may answer `404` and omit these from `GET /v1/capabilities` — gate on `caps.supports(...)` like any other route.
 
 ---
 
@@ -125,6 +141,116 @@ client.broadcast(message: string, options?): Promise<Ok>
 ```
 
 Filed under "Players" in the reference, but not player-scoped, so it lives at the top level of the client.
+
+---
+
+## Chat and feed
+
+Observed live on build `++Wardogs+Live-CL-533689` (2026-11-20); not in spec 1.1.0. The shapes below are transcribed from that probe — observed fact, not spec promise. Gate on capabilities before calling on older builds.
+
+### `GET /v1/chat`
+
+```ts
+client.chat.get(options?): Promise<Chat>
+client.chat.list(after?, limit?, options?): Promise<ChatMessage[]>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/chat?after=1001&limit=50"
+```
+
+```jsonc
+{
+  "latestSeq": 1042,
+  "messages": [
+    {
+      "seq": 1001,
+      "sentUtc": "2026-01-01T12:00:00.000Z",
+      "channel": "Team", // also observed: "Global"
+      "faction": "NATO",
+      "steamId": "76561198000000001", // string, like everywhere else
+      "realName": "Recruit",
+      "hiddenName": "Maple", // the alias shown when a player is anonymous
+      "anonymous": false,
+      "text": "moving to B",
+      "rawText": "moving to B",
+      "ping": false, // true when the message mentions (@) someone
+    },
+  ],
+  "count": 1,
+}
+```
+
+The buffer is in-memory and lives for the current map only — a restart or map change clears it. A plain GET returned the **oldest 100** in observation (`latestSeq` well past it), so do not assume one call returns the whole buffer: poll incrementally by keeping `latestSeq` and passing it back as `after`, which filters to `seq` strictly greater than the watermark.
+
+Two query parameters are observed; unrecognized ones are silently ignored:
+
+- `after=<seq>` — only messages after this watermark (incremental polling).
+- `limit=<n>` — truncates to the **oldest** N of the buffer, not the newest. Counterintuitive, but that is what the server does.
+
+The chat terms (below) forbid storing or resharing players' chat beyond what moderation requires. Treat the payload as ephemeral, and mind the privacy and data-protection law that applies to you.
+
+### `GET /v1/chat/terms` · `POST /v1/chat/terms`
+
+```ts
+client.chat.getTerms(options?): Promise<ChatTerms>
+client.chat.setTerms(terms: ChatTermsRequest, options?): Promise<Ok>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/chat/terms"
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"acceptedVersion": 1}' "$BASE/v1/chat/terms"
+```
+
+```jsonc
+{
+  "requiredVersion": 1,
+  "acceptedVersion": 1, // the version this token last accepted
+  "accepted": true,
+  "text": "…legal terms text…",
+}
+```
+
+These are **legal terms, not a word filter**: viewing chat data is conditioned on accepting a privacy notice, and the outbound feed pauses (`pausedForTerms` on `GET /v1/feed`) until it is accepted. Show `text` verbatim to the operator and let them decide.
+
+`POST` records acceptance. **The request body shape is unverified** — the write was deliberately not probed, because it records a consent decision. The client sends the `ChatTermsRequest` you give it (by inference, `{ "acceptedVersion": n }`); confirm against your own server before relying on it. A write, so never retried.
+
+### `GET /v1/feed`
+
+```ts
+client.feed.get(options?): Promise<FeedStatus>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/feed"
+```
+
+```jsonc
+{
+  "enabled": true,
+  "endpointCount": 1,
+  "anyUnhealthy": false,
+  "pausedForTerms": false, // delivery holds until the terms are accepted
+  "endpoints": [
+    {
+      "index": 0,
+      "scheme": "https",
+      "host": "feed.example.invalid", // wherever events are pushed
+      "healthy": true,
+      "queued": 0,
+      "inFlight": 0,
+      "consecutiveFailures": 0,
+      "sentTotal": 42,
+      "droppedTotal": 0,
+      "lastHttpStatus": 200,
+      "lastSuccessUnixSeconds": 1795106568,
+    },
+  ],
+}
+```
+
+`feed` is not an event stream to read: the server pushes events **out** to the configured endpoints, and this route reports how that dispatch is doing. A growing `queued`, a positive `consecutiveFailures`, or a climbing `droppedTotal` means the receivers are falling behind or down.
 
 ---
 
@@ -447,6 +573,34 @@ interface Health {
 
 Uptime, live connection count and the game-thread work queue. A climbing `gameThreadQueue.depth` or a rising `rejectedTotal` means the server is shedding admin requests — the signal to back a poll loop off, not to retry harder.
 
+### `GET /v1/version`
+
+```ts
+client.meta.version(options?): Promise<ServerVersion>
+client.getVersion(options?): Promise<ServerVersion>
+```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$BASE/v1/version"
+```
+
+```jsonc
+{
+  "build": "++Wardogs+Live-CL-533689",
+  "engine": {
+    "major": 5,
+    "minor": 7,
+    "patch": 4,
+    "changelist": 533689,
+    "compatibleChangelist": 533126,
+    "branch": "//Wardogs/Live",
+  },
+  "project": { "name": "Wardogs", "version": "v0.3.0" },
+}
+```
+
+Observed live; not in spec 1.1.0. `build` duplicates `Capabilities.build`; the split-out engine numbers exist so callers can compare versions without parsing the build string.
+
 ### `GET /v1/status` as a ping
 
 ```ts
@@ -492,10 +646,10 @@ await client.status.get({ timeoutMs: 3000, signal: controller.signal });
 
 ## Route ids
 
-`ROUTE_IDS` and the `RouteId` type list all 37 operations as `"METHOD /path"` strings, which is the form `capabilities.routes` uses.
+`ROUTE_IDS` and the `RouteId` type list all 42 operations as `"METHOD /path"` strings, which is the form `capabilities.routes` uses — 37 from the vendored spec, plus the 5 in `OBSERVED_ROUTES` that came from a live probe.
 
 ```ts
-import { ROUTE_IDS, normalizeRoute, isRouteId } from '@yuban32/wardogs-rcon-api';
+import { ROUTE_IDS, OBSERVED_ROUTES, normalizeRoute, isRouteId } from '@yuban32/wardogs-rcon-api';
 ```
 
-`normalizeRoute('patch /v1/players/{id}/')` → `'PATCH /v1/players/{*}'`. These are the strings the conformance test compares against the vendored spec, so a server-side change fails the build.
+`normalizeRoute('patch /v1/players/{id}/')` → `'PATCH /v1/players/{*}'`. These are the strings the conformance test compares against the vendored spec — spec routes must all be present, and the spec-vs-`ROUTE_IDS` diff must equal `OBSERVED_ROUTES` exactly — so a server-side change fails the build.
