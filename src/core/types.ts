@@ -2,7 +2,7 @@
  * Response and request-body types for the Wardogs RCON HTTP API (v1).
  *
  * Hand-written to mirror `components/schemas` in the spec snapshot at
- * `spec/openapi.json` (OpenAPI 3.0.3, spec version 1.1.0, updated 2026-09-14).
+ * `spec/openapi.json` (OpenAPI 3.0.3, spec version 1.1.1, updated 2026-09-21).
  * `tests/routes.test.ts` asserts the two stay in sync, so a server-side API
  * change surfaces as a failing test rather than a runtime surprise.
  *
@@ -152,9 +152,12 @@ export interface Capabilities extends Extensible {
 /** Returned by `GET /v1/server-id`. */
 export interface ServerId extends Extensible {
   /**
-   * An opaque id that survives restarts and map changes.
+   * The id the host gave this server: the contents of the file named by
+   * `-ServerID` on the server's command line.
    *
-   * Use it to key stored state instead of `host:port`, which moves.
+   * It survives restarts and map changes because a person set it — and for
+   * the same reason it can be empty: a host who never set one gets `""`. Key
+   * stored state on it when present, and fall back to `host:port` when blank.
    */
   serverId: string;
 }
@@ -275,14 +278,14 @@ export interface MapAlternators extends Ok {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Chat, feed and version — observed live, not in spec 1.1.0                    */
+/* Chat, feed and version — observed live, not in the vendored spec       */
 /* -------------------------------------------------------------------------- */
 
 /**
  * One chat line, as served by `GET /v1/chat` on build
  * `++Wardogs+Live-CL-533689` (2026-11-20).
  *
- * This route is not in vendored spec 1.1.0 — see {@link OBSERVED_ROUTES} — so
+ * This route is not in the vendored spec — see {@link OBSERVED_ROUTES} — so
  * these fields are transcribed from a live probe rather than mirrored from the
  * spec. A future build may add fields (absorbed by {@link Extensible}) or
  * tighten what it sends, which is why everything stays optional.
@@ -317,7 +320,7 @@ export interface ChatMessage extends Extensible {
 
 /**
  * Envelope of `GET /v1/chat`, observed on build `++Wardogs+Live-CL-533689`
- * (2026-11-20). Not in vendored spec 1.1.0 — see {@link OBSERVED_ROUTES}.
+ * (2026-11-20). Not in the vendored spec — see {@link OBSERVED_ROUTES}.
  *
  * The buffer is in-memory for the current map only, and a plain GET returned
  * only the oldest 100 in observation — `latestSeq` was well past the last
@@ -333,7 +336,7 @@ export interface Chat extends Extensible {
 
 /**
  * The chat-viewing consent document, from `GET /v1/chat/terms`, observed on
- * build `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 —
+ * build `++Wardogs+Live-CL-533689` (2026-11-20). Not in the vendored spec —
  * see {@link OBSERVED_ROUTES}.
  *
  * These are legal terms, not a word filter: the text forbids recording or
@@ -363,7 +366,7 @@ export interface ChatTermsRequest extends Extensible {
 
 /**
  * Outbound feed-delivery status, from `GET /v1/feed`, observed on build
- * `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 — see
+ * `++Wardogs+Live-CL-533689` (2026-11-20). Not in the vendored spec — see
  * {@link OBSERVED_ROUTES}.
  *
  * `feed` is not an event stream to read: the server pushes events out to the
@@ -394,7 +397,7 @@ export interface FeedStatus extends Extensible {
 
 /**
  * Build identity, from `GET /v1/version`, observed on build
- * `++Wardogs+Live-CL-533689` (2026-11-20). Not in vendored spec 1.1.0 — see
+ * `++Wardogs+Live-CL-533689` (2026-11-20). Not in the vendored spec — see
  * {@link OBSERVED_ROUTES}.
  *
  * `build` duplicates `Capabilities.build`; the split-out engine numbers exist

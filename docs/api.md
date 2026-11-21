@@ -556,7 +556,7 @@ interface ServerId {
 }
 ```
 
-An opaque id that survives restarts and map changes. Key stored state on it rather than `host:port`, which moves when a server is re-hosted — a dashboard that keyed its history on the address loses it on the next migration.
+The id the host gave the server: the contents of the file named by `-ServerID` on the server's command line. It survives restarts and map changes because a person set it — and it can be an empty string when nobody did. Key stored state on it when present, and fall back to `host:port` when it comes back blank — a dashboard that keyed its history on the address loses it on the next migration.
 
 ### `GET /v1/health`
 

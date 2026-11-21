@@ -23,10 +23,10 @@ export type RouteId =
   | 'POST /v1/players/{steamId}/kill'
   | 'POST /v1/players/{steamId}/message'
   | 'PATCH /v1/players/{steamId}'
-  // Chat and feed (observed live — not in spec 1.1.0)
+  // Chat and feed (observed live — not in the vendored spec)
   /**
    * Observed live on server build `++Wardogs+Live-CL-533689` (2026-11-20); the
-   * vendored spec 1.1.0 does not declare it. Older builds may answer 404 and
+   * the vendored spec does not declare it. Older builds may answer 404 and
    * omit it from `GET /v1/capabilities` — gate on capabilities. See
    * {@link OBSERVED_ROUTES}.
    */
@@ -99,13 +99,13 @@ export const ROUTE_IDS = [
   'POST /v1/players/{steamId}/kill',
   'POST /v1/players/{steamId}/message',
   'PATCH /v1/players/{steamId}',
-  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in the vendored spec. */
   'GET /v1/chat',
-  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in the vendored spec. */
   'GET /v1/chat/terms',
-  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in the vendored spec. */
   'POST /v1/chat/terms',
-  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in the vendored spec. */
   'GET /v1/feed',
   'GET /v1/bans',
   'POST /v1/bans',
@@ -119,7 +119,7 @@ export const ROUTE_IDS = [
   'GET /v1/server-id',
   'GET /v1/health',
   'GET /v1/audit',
-  /** Observed on build `++Wardogs+Live-CL-533689`; not in vendored spec 1.1.0. */
+  /** Observed on build `++Wardogs+Live-CL-533689`; not in the vendored spec. */
   'GET /v1/version',
   'POST /v1/broadcast',
   'POST /v1/match/map',
@@ -151,9 +151,9 @@ export const ROUTE_IDS = [
 ] as const satisfies readonly RouteId[];
 
 /**
- * Routes observed on live servers but absent from vendored spec 1.1.0.
+ * Routes observed on live servers but absent from the vendored spec.
  *
- * The spec is a snapshot (2026-09-14); the server moves. These five were probed
+ * The spec is a snapshot; the server moves. These five were probed
  * on build `++Wardogs+Live-CL-533689` (2026-11-20) and are served for real, so
  * the library supports them — but unlike the rest of {@link RouteId} they are
  * not backed by a published schema, so their response types are transcriptions

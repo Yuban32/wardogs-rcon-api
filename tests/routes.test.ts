@@ -93,7 +93,7 @@ describe('routes match the vendored spec', () => {
   it('declares every route the spec declares', () => {
     // Everything the spec knows about must be reachable through the library.
     // The converse no longer holds: `OBSERVED_ROUTES` below are routes real
-    // servers serve that spec 1.1.0 does not declare yet.
+    // servers serve that the vendored spec does not declare yet.
     const absent = specRoutes().filter(
       (route) => !(ROUTE_IDS as readonly string[]).includes(route),
     );

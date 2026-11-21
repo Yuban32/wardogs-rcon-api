@@ -91,7 +91,7 @@ Capability strings are compared with path-parameter names collapsed, because the
 
 ## API
 
-Every method below is available namespaced (`client.players.kick(...)`) and as a flat alias (`client.kickPlayer(...)`) — same implementation, whichever reads better at the call site. Routes marked **†** were observed live on build `++Wardogs+Live-CL-533689` (2026-11-20) and are declared nowhere in vendored spec 1.1.0 — the library exports the pinned list as `OBSERVED_ROUTES`, and builds older than that may not serve them, so gate on `capabilities.supports(...)`.
+Every method below is available namespaced (`client.players.kick(...)`) and as a flat alias (`client.kickPlayer(...)`) — same implementation, whichever reads better at the call site. Routes marked **†** were observed live on build `++Wardogs+Live-CL-533689` (2026-11-20) and are declared nowhere in the vendored spec — the library exports the pinned list as `OBSERVED_ROUTES`, and builds older than that may not serve them, so gate on `capabilities.supports(...)`.
 
 ### Match state
 
@@ -114,7 +114,7 @@ Every method below is available namespaced (`client.players.kick(...)`) and as a
 
 ### Chat and feed †
 
-Observed live, not in spec 1.1.0. `chat` is the in-memory buffer for the current map: poll it incrementally with `list(after)` using the envelope's `latestSeq`. Note that a plain GET returned the **oldest** 100 in observation, and `limit` truncates to the **oldest** N of the buffer, not the newest — observed, and counterintuitive. `GET /v1/chat/terms` is a **legal consent document** (viewing chat is conditioned on accepting a privacy notice, and the outbound feed pauses until it is), not a word filter; its `POST` records acceptance and its body shape is unverified — the write was deliberately not probed. `feed` is not an event stream to read: it reports the server's **outbound** event-delivery status. The chat payload is personal data — the terms forbid storing or resharing it beyond what moderation requires.
+Observed live, not in the vendored spec. `chat` is the in-memory buffer for the current map: poll it incrementally with `list(after)` using the envelope's `latestSeq`. Note that a plain GET returned the **oldest** 100 in observation, and `limit` truncates to the **oldest** N of the buffer, not the newest — observed, and counterintuitive. `GET /v1/chat/terms` is a **legal consent document** (viewing chat is conditioned on accepting a privacy notice, and the outbound feed pauses until it is), not a word filter; its `POST` records acceptance and its body shape is unverified — the write was deliberately not probed. `feed` is not an event stream to read: it reports the server's **outbound** event-delivery status. The chat payload is personal data — the terms forbid storing or resharing it beyond what moderation requires.
 
 | Method                             | Endpoint                | Returns         |
 | ---------------------------------- | ----------------------- | --------------- |

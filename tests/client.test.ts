@@ -188,7 +188,7 @@ describe('players', () => {
 
 describe('chat and feed — observed live', () => {
   // These five operations are served by build ++Wardogs+Live-CL-533689
-  // (2026-11-20) but declared nowhere in vendored spec 1.1.0, so their fixtures
+  // (2026-11-20) but declared nowhere in the vendored spec, so their fixtures
   // transcribe the live probe. All values are synthetic: the chat terms forbid
   // storing or resharing players' chat, so no captured content appears here.
 

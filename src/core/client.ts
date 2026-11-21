@@ -15,7 +15,7 @@
  *
  * Five of them are the opposite of deprecated: observed live on build
  * `++Wardogs+Live-CL-533689` (2026-11-20) but not yet declared by the vendored
- * spec 1.1.0 (`client.chat`, `client.feed`, `client.meta.version`). Their
+ * spec (`client.chat`, `client.feed`, `client.meta.version`). Their
  * response types are transcriptions of a live probe rather than spec mirrors,
  * and builds older than CL-533689 may not serve them — gate on capabilities.
  * See `OBSERVED_ROUTES` in `routes.ts`.
@@ -156,7 +156,7 @@ export interface ChatApi {
   /**
    * `GET /v1/chat` — the in-memory chat buffer for the current map, as one
    * envelope. Observed live on build `++Wardogs+Live-CL-533689` (2026-11-20);
-   * not in vendored spec 1.1.0. See
+   * not in the vendored spec. See
    * {@link import('./routes.js').OBSERVED_ROUTES}.
    */
   get(options?: CallOptions): Promise<Chat>;
@@ -171,13 +171,13 @@ export interface ChatApi {
   list(after?: number, limit?: number, options?: CallOptions): Promise<ChatMessage[]>;
   /**
    * `GET /v1/chat/terms` — the chat-viewing consent document. Observed live;
-   * not in spec 1.1.0. These are legal terms, not a word filter; the outbound
+   * not in the vendored spec. These are legal terms, not a word filter; the outbound
    * feed pauses until accepted. Show `text` verbatim to the operator.
    */
   getTerms(options?: CallOptions): Promise<ChatTerms>;
   /**
    * `POST /v1/chat/terms` — record acceptance of the chat terms. Observed
-   * live; not in spec 1.1.0.
+   * live; not in the vendored spec.
    *
    * The request body shape was not probed (it records a consent decision), so
    * {@link ChatTermsRequest} is inferred and unverified — confirm against your
@@ -191,7 +191,7 @@ export interface FeedApi {
    * `GET /v1/feed` — outbound feed-delivery status, not an event stream to
    * read: the server pushes events to configured endpoints, and this reports
    * how that dispatch is doing. Observed live on build
-   * `++Wardogs+Live-CL-533689` (2026-11-20); not in vendored spec 1.1.0.
+   * `++Wardogs+Live-CL-533689` (2026-11-20); not in the vendored spec.
    */
   get(options?: CallOptions): Promise<FeedStatus>;
 }
@@ -374,7 +374,7 @@ export interface MetaApi {
   health(options?: CallOptions): Promise<Health>;
   /**
    * `GET /v1/version` — engine and project build identity. Observed live on
-   * build `++Wardogs+Live-CL-533689` (2026-11-20); not in vendored spec 1.1.0.
+   * build `++Wardogs+Live-CL-533689` (2026-11-20); not in the vendored spec.
    * `build` duplicates `Capabilities.build` in structured form.
    */
   version(options?: CallOptions): Promise<ServerVersion>;
@@ -417,7 +417,7 @@ export interface WardogsClient {
   messagePlayer(steamId: string, message: string, options?: CallOptions): Promise<Ok>;
   /** Alias of `players.setFaction()`. */
   setPlayerFaction(steamId: string, faction: string, options?: CallOptions): Promise<Ok>;
-  /** Alias of `chat.get()`. Observed live; not in vendored spec 1.1.0. */
+  /** Alias of `chat.get()`. Observed live; not in the vendored spec. */
   getChat(options?: CallOptions): Promise<Chat>;
   /** Alias of `chat.list()`. */
   listChatMessages(after?: number, limit?: number, options?: CallOptions): Promise<ChatMessage[]>;

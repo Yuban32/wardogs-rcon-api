@@ -17,10 +17,10 @@ export const VERSION = '0.3.0';
  * this against the current spec at https://wardogs.tech/openapi.json before
  * assuming a bug in your own code.
  */
-export const SPEC_UPDATED = '2026-09-14';
+export const SPEC_UPDATED = '2026-09-21';
 
 /** Raw specification version string, e.g. `"1.1.0"`. */
-export const SPEC_VERSION = '1.1.0';
+export const SPEC_VERSION = '1.1.1';
 
 /** API version this library targets. Only `v1` exists. */
 export const API_VERSION = 'v1';
